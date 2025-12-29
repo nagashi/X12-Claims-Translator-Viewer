@@ -1,7 +1,6 @@
 defmodule ClaimViewerWeb.PageController do
   use ClaimViewerWeb, :controller
 
-<<<<<<< HEAD
   alias ClaimViewer.Repo
   alias ClaimViewer.Claims
   alias ClaimViewer.Claims.Claim
@@ -46,11 +45,6 @@ defmodule ClaimViewerWeb.PageController do
       rendering_provider: rendering_provider,
       claim_number: claim_number
     )
-=======
-  
-  def home(conn, _params) do
-    render(conn, :home, json: [], show_claim: false)
->>>>>>> ff3d9cd4885e2d342f631c95d53e348eaf214b67
   end
 
   def upload(conn, %{"file" => %Plug.Upload{path: path}}) do
@@ -68,10 +62,6 @@ defmodule ClaimViewerWeb.PageController do
     redirect(conn, to: "/")
   end
 
-<<<<<<< HEAD
-=======
-  
->>>>>>> ff3d9cd4885e2d342f631c95d53e348eaf214b67
   def upload(conn, _params) do
     conn
     |> put_flash(:error, "Please select a JSON file")
