@@ -17,9 +17,23 @@ defmodule ClaimViewerWeb.Router do
   scope "/", ClaimViewerWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
-    get "/claim", PageController, :claim
-    post "/upload", PageController, :upload
+ # Handles HTTP GET requests to the root URL ("/")
+# Calls the home/2 action in PageController
+# Used to render the main home page of the application
+get "/", PageController, :home
+
+
+# Handles HTTP GET requests to "/claim"
+# Calls the claim/2 action in PageController
+# Intended to display a claim-related page (if implemented)
+get "/claim", PageController, :claim
+
+
+# Handles HTTP POST requests to "/upload"
+# Calls the upload/2 action in PageController
+# Used for uploading and processing a JSON claim file
+post "/upload", PageController, :upload
+
 
 
 
