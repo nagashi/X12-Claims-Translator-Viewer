@@ -20,6 +20,7 @@
         </button>
       </form>
 
+<<<<<<< HEAD
       <script>
         document.getElementById("file-input")?.addEventListener("change", e => {
           if (e.target.files.length > 0) {
@@ -27,6 +28,22 @@
           }
         });
       </script>
+=======
+  <!-- Upload JSON -->
+<form
+  action="/upload"
+  method="post"
+  enctype="multipart/form-data"
+  id="upload-form"
+  class="mb-6"
+>
+  <!-- CSRF TOKEN  -->
+  <input
+    type="hidden"
+    name="_csrf_token"
+    value={Plug.CSRFProtection.get_csrf_token()}
+  />
+>>>>>>> ff3d9cd4885e2d342f631c95d53e348eaf214b67
 
       <!-- SEARCH -->
       <form method="get" action="/" class="mt-6 space-y-3">
