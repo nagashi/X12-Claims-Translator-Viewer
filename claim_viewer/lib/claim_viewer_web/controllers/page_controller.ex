@@ -6,6 +6,7 @@ defmodule ClaimViewerWeb.PageController do
   alias ClaimViewer.Claims.Claim
   import Ecto.Query
 
+  # SEARCH PAGE
   def home(conn, params) do
     first = Map.get(params, "patient_first", "")
     last = Map.get(params, "patient_last", "")
@@ -19,7 +20,7 @@ defmodule ClaimViewerWeb.PageController do
         billing_provider != "" or rendering_provider != "" or
         claim_number != ""
 
-    claim =
+    claims =
       if has_search? do
         from(c in Claim)
         |> maybe_like(:patient_first_name, first)
@@ -29,24 +30,42 @@ defmodule ClaimViewerWeb.PageController do
         |> maybe_like(:rendering_provider_npi, rendering_provider)
         |> maybe_like(:clearinghouse_claim_number, claim_number)
         |> order_by([c], desc: c.inserted_at)
-        |> limit(1)
-        |> Repo.one()
+        |> Repo.all()
       else
-        nil
+        []
       end
 
     render(conn, :home,
-      json: claim && claim.raw_json || [],
-      show_claim: not is_nil(claim),
+      claims: claims,
+      show_results: has_search?,
       patient_first: first,
       patient_last: last,
       payer: payer,
       billing_provider: billing_provider,
       rendering_provider: rendering_provider,
-      claim_number: claim_number
+      claim_number: claim_number,
+      json: nil
     )
   end
 
+  # SHOW SINGLE CLAIM
+  def show(conn, %{"id" => id}) do
+    claim = Repo.get!(Claim, id)
+
+    render(conn, :home,
+      claims: [],
+      show_results: false,
+      patient_first: "",
+      patient_last: "",
+      payer: "",
+      billing_provider: "",
+      rendering_provider: "",
+      claim_number: "",
+      json: claim.raw_json
+    )
+  end
+
+  # UPLOAD
   def upload(conn, %{"file" => %Plug.Upload{path: path}}) do
     json =
       path

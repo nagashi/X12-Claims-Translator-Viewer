@@ -11,6 +11,7 @@
       <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
         <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
         <input type="file" name="file" accept=".json" id="file-input" class="hidden" />
+
         <button
           type="button"
           onclick="document.getElementById('file-input').click()"
@@ -20,7 +21,7 @@
         </button>
       </form>
 
-      <script phx-no-compile>
+      <script>
         document.getElementById("file-input")?.addEventListener("change", e => {
           if (e.target.files.length > 0) {
             document.getElementById("upload-form").submit();
@@ -40,23 +41,51 @@
         </div>
 
         <div class="flex gap-2 mt-2">
-          <button type="submit" class="border border-black px-4 py-1 text-sm hover:bg-gray-100">
-            Search
-          </button>
-          <a href="/" class="border border-black px-4 py-1 text-sm hover:bg-gray-100">
-            Clear
-          </a>
+          <button type="submit" class="border border-black px-4 py-1 text-sm hover:bg-gray-100">Search</button>
+          <a href="/" class="border border-black px-4 py-1 text-sm hover:bg-gray-100">Clear</a>
         </div>
       </form>
     </div>
 
-    <!-- NO CLAIM -->
-    <%= if !@show_claim do %>
-      <p class="text-gray-600">No claim loaded yet.</p>
+    <!-- SEARCH MESSAGES -->
+    <%= if !@show_results and @json == nil do %>
+      <p class="text-gray-600">Please enter search criteria to find claims.</p>
     <% end %>
 
-    <!-- CLAIM VIEW -->
-    <%= if @show_claim do %>
+    <%= if @show_results and @claims == [] do %>
+      <p class="text-gray-600">No results found.</p>
+    <% end %>
+
+    <!-- SEARCH RESULTS -->
+    <%= if @claims != [] do %>
+      <h2 class="font-bold text-sm mb-3">Search Results</h2>
+
+      <table class="w-full border border-black text-sm mb-6">
+        <thead>
+          <tr class="border-b">
+            <th class="p-2 text-left">Patient</th>
+            <th class="p-2 text-left">Payer</th>
+            <th class="p-2 text-left">Claim #</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for claim <- @claims do %>
+            <tr class="border-b hover:bg-gray-100 cursor-pointer">
+              <td class="p-2">
+                <a href={"/claims/#{claim.id}"} class="underline">
+                  <%= claim.patient_first_name %> <%= claim.patient_last_name %>
+                </a>
+              </td>
+              <td class="p-2"><%= claim.payer_name %></td>
+              <td class="p-2"><%= claim.clearinghouse_claim_number %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+
+    <!-- FULL CLAIM VIEW -->
+    <%= if @json do %>
       <%= for section <- @json do %>
         <div class="mb-10">
           <h2 class="font-bold uppercase text-sm mb-2 border-b border-black">
@@ -64,30 +93,17 @@
           </h2>
 
           <%= if is_map(section["data"]) do %>
-            <div class="space-y-1 text-sm">
-              <%= for {key, value} <- section["data"] do %>
-                <%= if is_map(value) do %>
-                  <div class="mt-2">
-                    <div class="font-semibold"><%= key %></div>
-                    <div class="ml-4">
-                      <%= for {k, v} <- value do %>
-                        <p><b><%= k %>:</b> <%= v %></p>
-                      <% end %>
-                    </div>
-                  </div>
-                <% else %>
-                  <p><b><%= key %>:</b> <%= value %></p>
-                <% end %>
-              <% end %>
-            </div>
+            <%= for {k, v} <- section["data"] do %>
+              <p><b><%= k %>:</b> <%= inspect(v) %></p>
+            <% end %>
           <% end %>
 
           <%= if is_list(section["data"]) do %>
-            <table class="w-full border border-black text-sm mt-3">
+            <table class="w-full border mt-2">
               <thead>
                 <tr>
                   <%= for key <- Map.keys(List.first(section["data"])) do %>
-                    <th class="border p-2 text-left"><%= key %></th>
+                    <th class="border p-1"><%= key %></th>
                   <% end %>
                 </tr>
               </thead>
@@ -95,7 +111,7 @@
                 <%= for row <- section["data"] do %>
                   <tr>
                     <%= for {_k, v} <- row do %>
-                      <td class="border p-2"><%= v %></td>
+                      <td class="border p-1"><%= v %></td>
                     <% end %>
                   </tr>
                 <% end %>

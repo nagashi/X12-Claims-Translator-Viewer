@@ -22,6 +22,7 @@ defmodule ClaimViewerWeb.Router do
 # Used to render the main home page of the application
 get "/", PageController, :home
 
+get "/claims/:id", PageController, :show
 
 # Handles HTTP GET requests to "/claim"
 # Calls the claim/2 action in PageController
@@ -33,6 +34,7 @@ get "/claim", PageController, :claim
 # Calls the upload/2 action in PageController
 # Used for uploading and processing a JSON claim file
 post "/upload", PageController, :upload
+
 
 
 
