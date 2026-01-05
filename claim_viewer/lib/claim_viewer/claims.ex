@@ -18,6 +18,17 @@ defmodule ClaimViewer.Claims do
     }
   end
 
+  def extract_date_of_service(sections) do
+  sections
+  |> Enum.find(fn s -> s["section"] == "service_Lines" end)
+  |> case do
+    nil -> nil
+    %{"data" => [first | _]} ->
+      Date.from_iso8601!(first["serviceDate"])
+  end
+  end
+
+
   def extract_search_fields(_), do: %{}
 
   defp get_in_section(sections, section_name, path) do

@@ -6,7 +6,6 @@ defmodule ClaimViewerWeb.PageController do
   alias ClaimViewer.Claims.Claim
   import Ecto.Query
 
-  # SEARCH PAGE
   def home(conn, params) do
     first = Map.get(params, "patient_first", "")
     last = Map.get(params, "patient_last", "")
@@ -14,11 +13,13 @@ defmodule ClaimViewerWeb.PageController do
     billing_provider = Map.get(params, "billing_provider", "")
     rendering_provider = Map.get(params, "rendering_provider", "")
     claim_number = Map.get(params, "claim_number", "")
+    service_from = Map.get(params, "service_from", "")
+    service_to = Map.get(params, "service_to", "")
 
     has_search? =
       first != "" or last != "" or payer != "" or
         billing_provider != "" or rendering_provider != "" or
-        claim_number != ""
+        claim_number != "" or service_from != "" or service_to != ""
 
     claims =
       if has_search? do
@@ -29,6 +30,7 @@ defmodule ClaimViewerWeb.PageController do
         |> maybe_like(:billing_provider_name, billing_provider)
         |> maybe_like(:rendering_provider_npi, rendering_provider)
         |> maybe_like(:clearinghouse_claim_number, claim_number)
+        |> maybe_date_range(service_from, service_to)
         |> order_by([c], desc: c.inserted_at)
         |> Repo.all()
       else
@@ -44,11 +46,12 @@ defmodule ClaimViewerWeb.PageController do
       billing_provider: billing_provider,
       rendering_provider: rendering_provider,
       claim_number: claim_number,
+      service_from: service_from,
+      service_to: service_to,
       json: nil
     )
   end
 
-  # SHOW SINGLE CLAIM
   def show(conn, %{"id" => id}) do
     claim = Repo.get!(Claim, id)
 
@@ -61,11 +64,12 @@ defmodule ClaimViewerWeb.PageController do
       billing_provider: "",
       rendering_provider: "",
       claim_number: "",
+      service_from: "",
+      service_to: "",
       json: claim.raw_json
     )
   end
 
-  # UPLOAD
   def upload(conn, %{"file" => %Plug.Upload{path: path}}) do
     json =
       path
@@ -73,9 +77,14 @@ defmodule ClaimViewerWeb.PageController do
       |> Jason.decode!()
 
     search_fields = Claims.extract_search_fields(json)
+    date_of_service = Claims.extract_date_of_service(json)
+
+    attrs =
+      %{raw_json: json, date_of_service: date_of_service}
+      |> Map.merge(search_fields)
 
     %Claim{}
-    |> Claim.changeset(Map.merge(%{raw_json: json}, search_fields))
+    |> Claim.changeset(attrs)
     |> Repo.insert!()
 
     redirect(conn, to: "/")
@@ -88,8 +97,20 @@ defmodule ClaimViewerWeb.PageController do
   end
 
   defp maybe_like(query, _field, ""), do: query
-
   defp maybe_like(query, field, value) do
     where(query, [c], ilike(field(c, ^field), ^"%#{value}%"))
   end
+
+defp maybe_date_range(query, "", ""), do: query
+
+defp maybe_date_range(query, from, to) do
+  {:ok, from_date} = Date.from_iso8601(from)
+  {:ok, to_date} = Date.from_iso8601(to)
+
+  where(query, [c],
+    c.date_of_service >= ^from_date and
+    c.date_of_service <= ^to_date
+  )
+end
+
 end
