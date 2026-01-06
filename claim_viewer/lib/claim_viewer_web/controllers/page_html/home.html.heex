@@ -1,95 +1,135 @@
-<div class="bg-gray-100 min-h-screen py-8">
-  <div class="bg-white text-black max-w-5xl mx-auto p-8 leading-relaxed">
+<div style="min-height:100vh; background:#0f172a; padding:40px; color:white;">
+  <div style="
+    max-width:1100px;
+    margin:auto;
+    background:#020617;
+    padding:32px;
+    border-radius:14px;
+    box-shadow:0 0 40px rgba(56,189,248,0.15);
+  ">
 
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold mb-4">
-        <a href="/" class="hover:underline">Claim Viewer</a>
+    <!-- HEADER -->
+    <div style="margin-bottom:32px;">
+      <h1 style="font-size:28px; font-weight:bold; color:#38bdf8;">
+        <a href="/" style="color:#38bdf8; text-decoration:none;">Claim Viewer</a>
       </h1>
 
+      <!-- UPLOAD -->
       <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
         <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
-        <input type="file" name="file" accept=".json" id="file-input" class="hidden" />
+        <input type="file" name="file" accept=".json" id="file-input" hidden />
 
-        <button
-          type="button"
+        <button type="button"
           onclick="document.getElementById('file-input').click()"
-          class="border border-black px-4 py-1 text-sm hover:bg-gray-100"
-        >
-          Choose file
+          style="
+            background:#06b6d4;
+            color:#020617;
+            padding:8px 16px;
+            border-radius:8px;
+            font-weight:bold;
+            border:none;
+            cursor:pointer;
+            margin-top:12px;
+          ">
+          Upload JSON
         </button>
-      </form>
-
-      <script>
-        document.getElementById("file-input")?.addEventListener("change", e => {
-          if (e.target.files.length > 0) {
-            document.getElementById("upload-form").submit();
-          }
-        });
-      </script>
-
-      <form method="get" action="/" class="mt-6 space-y-3">
-        <div class="grid grid-cols-2 gap-3">
-          <input name="patient_first" value={@patient_first} placeholder="Patient first name" class="border px-3 py-1 text-sm" />
-          <input name="patient_last" value={@patient_last} placeholder="Patient last name" class="border px-3 py-1 text-sm" />
-          <input name="payer" value={@payer} placeholder="Payer name" class="border px-3 py-1 text-sm" />
-          <input name="billing_provider" value={@billing_provider} placeholder="Billing provider" class="border px-3 py-1 text-sm" />
-          <input name="rendering_provider" value={@rendering_provider} placeholder="Rendering provider NPI" class="border px-3 py-1 text-sm" />
-          <input name="claim_number" value={@claim_number} placeholder="Claim #" class="border px-3 py-1 text-sm" />
-
-          <input type="date" name="service_from" value={@service_from} class="border px-3 py-1 text-sm" />
-          <input type="date" name="service_to" value={@service_to} class="border px-3 py-1 text-sm" />
-        </div>
-
-        <div class="flex gap-2 mt-2">
-          <button type="submit" class="border border-black px-4 py-1 text-sm hover:bg-gray-100">
-            Search
-          </button>
-          <a href="/" class="border border-black px-4 py-1 text-sm hover:bg-gray-100">
-            Clear
-          </a>
-        </div>
       </form>
     </div>
 
+    <script>
+      document.getElementById("file-input")?.addEventListener("change", e => {
+        if (e.target.files.length > 0) {
+          document.getElementById("upload-form").submit();
+        }
+      });
+    </script>
+
+    <!-- SEARCH -->
+    <form method="get" action="/">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <input name="patient_first" value={@patient_first} placeholder="Patient first name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
+ />
+        <input name="patient_last" value={@patient_last} placeholder="Patient last name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
+ />
+        <input name="payer" value={@payer} placeholder="Payer name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
+ />
+        <input name="billing_provider" value={@billing_provider} placeholder="Billing provider" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
+ />
+        <input name="rendering_provider" value={@rendering_provider} placeholder="Rendering provider NPI" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
+ />
+        <input name="claim_number" value={@claim_number} placeholder="Claim #" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
+ />
+
+<input type="date" name="service_from" value={@service_from}
+  style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px;border-radius:8px;" />
+
+<input type="date" name="service_to" value={@service_to}
+  style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px;border-radius:8px;" />
+
+      </div>
+
+      <div style="margin-top:18px; display:flex; gap:12px;">
+        <button type="submit"
+  style="background:#22c55e;color:#020617;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;">
+  Search
+</button>
+
+        <a href="/"
+  style="background:#334155;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">
+  Clear
+</a>
+
+      </div>
+    </form>
+
+    <!-- MESSAGES -->
     <%= if !@show_results and @json == nil do %>
-      <p class="text-gray-600">Please enter search criteria to find claims.</p>
+      <p style="margin-top:20px; color:#94a3b8;">Please enter search criteria.</p>
     <% end %>
 
     <%= if @show_results and @claims == [] do %>
-      <p class="text-gray-600">No results found.</p>
+      <p style="margin-top:20px; color:#f87171;">No results found.</p>
     <% end %>
 
+    <!-- SEARCH RESULTS (ΔΟΥΛΕΥΕΙ) -->
     <%= if @claims != [] do %>
-      <h2 class="font-bold text-sm mb-3">Search Results</h2>
+      <h2 style="margin-top:30px; color:#38bdf8;">Search Results</h2>
 
-      <table class="w-full border border-black text-sm mb-6">
+      <table style="width:100%; margin-top:10px; border-collapse:collapse;">
         <thead>
-          <tr class="border-b">
-            <th class="p-2 text-left">Patient</th>
-            <th class="p-2 text-left">Payer</th>
-            <th class="p-2 text-left">Claim #</th>
+          <tr style="border-bottom:2px solid #38bdf8;">
+            <th align="left">Patient</th>
+            <th align="left">Payer</th>
+            <th align="left">Claim #</th>
           </tr>
         </thead>
         <tbody>
           <%= for claim <- @claims do %>
-            <tr class="border-b hover:bg-gray-100 cursor-pointer">
-              <td class="p-2">
-                <a href={"/claims/#{claim.id}"} class="underline">
+            <tr style="border-bottom:1px solid #1e293b;">
+              <td style="padding:8px;">
+                <a href={"/claims/#{claim.id}"} style="color:#22d3ee; text-decoration:underline;">
                   <%= claim.patient_first_name %> <%= claim.patient_last_name %>
                 </a>
               </td>
-              <td class="p-2"><%= claim.payer_name %></td>
-              <td class="p-2"><%= claim.clearinghouse_claim_number %></td>
+              <td><%= claim.payer_name %></td>
+              <td><%= claim.clearinghouse_claim_number %></td>
             </tr>
           <% end %>
         </tbody>
       </table>
     <% end %>
 
+    <!-- FULL CLAIM VIEW (ΟΠΩΣ ΔΟΥΛΕΥΕ ΠΡΙΝ) -->
     <%= if @json do %>
       <%= for section <- @json do %>
-        <div class="mb-10">
-          <h2 class="font-bold uppercase text-sm mb-2 border-b border-black">
+        <div style="margin-top:40px;">
+          <h2 style="
+            font-size:14px;
+            font-weight:bold;
+            color:#38bdf8;
+            border-bottom:1px solid #38bdf8;
+            padding-bottom:4px;
+          ">
             <%= section["section"] |> String.replace("_", " ") |> String.upcase() %>
           </h2>
 
@@ -100,11 +140,11 @@
           <% end %>
 
           <%= if is_list(section["data"]) do %>
-            <table class="w-full border mt-2">
+            <table style="width:100%; border-collapse:collapse; margin-top:8px;">
               <thead>
                 <tr>
                   <%= for key <- Map.keys(List.first(section["data"])) do %>
-                    <th class="border p-1"><%= key %></th>
+                    <th style="border:1px solid #334155; padding:4px;"><%= key %></th>
                   <% end %>
                 </tr>
               </thead>
@@ -112,7 +152,7 @@
                 <%= for row <- section["data"] do %>
                   <tr>
                     <%= for {_k, v} <- row do %>
-                      <td class="border p-1"><%= v %></td>
+                      <td style="border:1px solid #334155; padding:4px;"><%= v %></td>
                     <% end %>
                   </tr>
                 <% end %>
@@ -125,3 +165,5 @@
 
   </div>
 </div>
+
+
