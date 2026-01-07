@@ -270,16 +270,6 @@ The date of service is extracted from the first service line item and stored sep
 - **Inline Styles**: Dark theme implemented with inline styles (future: migrate to CSS/Tailwind)
 - **No External UI Libraries**: Pure HTML/Elixir templates without JavaScript frameworks
 
-## Future Enhancements
-
-- Export claims to PDF or CSV format
-- Batch file upload (multiple JSON files at once)
-- Additional search filters (diagnosis codes, procedure codes, provider specialties)
-- Claims comparison view (compare two claims side-by-side)
-- Analytics dashboard with claim statistics
-- User authentication and multi-user support
-- Audit log for tracking uploads and searches
-- API endpoints for programmatic access
 
 
 ## Contributors
