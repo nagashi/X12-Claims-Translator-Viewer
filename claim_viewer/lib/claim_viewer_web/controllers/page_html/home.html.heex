@@ -133,13 +133,13 @@
             <%= section["section"] |> String.replace("_", " ") |> String.upcase() %>
           </h2>
 
-          <%= if is_map(section["data"]) do %>
+          <%= if is_map(section["data"]) and section["data"] != %{} do %>
             <%= for {k, v} <- section["data"] do %>
               <p><b><%= k %>:</b> <%= inspect(v) %></p>
             <% end %>
           <% end %>
 
-          <%= if is_list(section["data"]) do %>
+          <%= if is_list(section["data"]) and section["data"] != [] do %>
             <table style="width:100%; border-collapse:collapse; margin-top:8px;">
               <thead>
                 <tr>

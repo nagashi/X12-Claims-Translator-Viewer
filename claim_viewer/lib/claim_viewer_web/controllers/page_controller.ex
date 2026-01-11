@@ -7,14 +7,15 @@ defmodule ClaimViewerWeb.PageController do
   import Ecto.Query
 
   def home(conn, params) do
-    first = Map.get(params, "patient_first", "")
-    last = Map.get(params, "patient_last", "")
-    payer = Map.get(params, "payer", "")
-    billing_provider = Map.get(params, "billing_provider", "")
-    rendering_provider = Map.get(params, "rendering_provider", "")
-    claim_number = Map.get(params, "claim_number", "")
-    service_from = Map.get(params, "service_from", "")
-    service_to = Map.get(params, "service_to", "")
+first = params |> Map.get("patient_first", "") |> String.trim()
+last = params |> Map.get("patient_last", "") |> String.trim()
+payer = params |> Map.get("payer", "") |> String.trim()
+billing_provider = params |> Map.get("billing_provider", "") |> String.trim()
+rendering_provider = params |> Map.get("rendering_provider", "") |> String.trim()
+claim_number = params |> Map.get("claim_number", "") |> String.trim()
+service_from = params |> Map.get("service_from", "") |> String.trim()
+service_to = params |> Map.get("service_to", "") |> String.trim()
+
 
     has_search? =
       first != "" or last != "" or payer != "" or
@@ -77,7 +78,12 @@ defmodule ClaimViewerWeb.PageController do
       |> Jason.decode!()
 
     search_fields = Claims.extract_search_fields(json)
-    date_of_service = Claims.extract_date_of_service(json)
+    date_of_service =
+  try do
+    Claims.extract_date_of_service(json)
+  rescue
+    _ -> nil
+  end
 
     attrs =
       %{raw_json: json, date_of_service: date_of_service}
@@ -102,15 +108,39 @@ defmodule ClaimViewerWeb.PageController do
   end
 
 defp maybe_date_range(query, "", ""), do: query
+defp maybe_date_range(query, from, "") do
+  case Date.from_iso8601(from) do
+    {:ok, from_date} ->
+      where(query, [c], c.date_of_service >= ^from_date)
+
+    _ ->
+      query
+  end
+end
+
+defp maybe_date_range(query, "", to) do
+  case Date.from_iso8601(to) do
+    {:ok, to_date} ->
+      where(query, [c], c.date_of_service <= ^to_date)
+
+    _ ->
+      query
+  end
+end
 
 defp maybe_date_range(query, from, to) do
-  {:ok, from_date} = Date.from_iso8601(from)
-  {:ok, to_date} = Date.from_iso8601(to)
+  case {Date.from_iso8601(from), Date.from_iso8601(to)} do
+    {{:ok, from_date}, {:ok, to_date}} ->
+      where(query, [c],
+        not is_nil(c.date_of_service) and
+        c.date_of_service >= ^from_date and
+        c.date_of_service <= ^to_date
+      )
 
-  where(query, [c],
-    c.date_of_service >= ^from_date and
-    c.date_of_service <= ^to_date
-  )
+    _ ->
+      query
+  end
 end
+
 
 end
