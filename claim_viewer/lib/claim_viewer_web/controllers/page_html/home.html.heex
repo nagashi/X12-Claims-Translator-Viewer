@@ -119,51 +119,153 @@
       </table>
     <% end %>
 
-    <!-- FULL CLAIM VIEW (ΟΠΩΣ ΔΟΥΛΕΥΕ ΠΡΙΝ) -->
-    <%= if @json do %>
-      <%= for section <- @json do %>
-        <div style="margin-top:40px;">
-          <h2 style="
-            font-size:14px;
-            font-weight:bold;
-            color:#38bdf8;
-            border-bottom:1px solid #38bdf8;
-            padding-bottom:4px;
-          ">
-            <%= section["section"] |> String.replace("_", " ") |> String.upcase() %>
-          </h2>
+<!-- FULL CLAIM VIEW -->
+<%= if @json do %>
+  <%= for section <- @json do %>
 
-          <%= if is_map(section["data"]) and section["data"] != %{} do %>
-            <%= for {k, v} <- section["data"] do %>
-              <p><b><%= k %>:</b> <%= inspect(v) %></p>
-            <% end %>
-          <% end %>
+    <div style="margin-top:40px;">
 
-          <%= if is_list(section["data"]) and section["data"] != [] do %>
-            <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-              <thead>
-                <tr>
-                  <%= for key <- Map.keys(List.first(section["data"])) do %>
-                    <th style="border:1px solid #334155; padding:4px;"><%= key %></th>
-                  <% end %>
-                </tr>
-              </thead>
-              <tbody>
-                <%= for row <- section["data"] do %>
-                  <tr>
-                    <%= for {_k, v} <- row do %>
-                      <td style="border:1px solid #334155; padding:4px;"><%= v %></td>
-                    <% end %>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
-          <% end %>
-        </div>
-      <% end %>
+      <h2 style="
+        font-size:14px;
+        font-weight:bold;
+        color:#38bdf8;
+        border-bottom:1px solid #38bdf8;
+        padding-bottom:4px;
+      ">
+        <%= section["section"]
+            |> String.replace("_", " ")
+            |> String.upcase() %>
+      </h2>
+
+      <% data = section["data"] || %{} %>
+      <% section_name =
+        (section["section"] || "")
+        |> to_string()
+        |> String.downcase()
+      %>
+
+      <!-- ===== MAP SECTIONS ===== -->
+      <%= if is_map(data) and data != %{} do %>
+
+<!-- ===== SUBSCRIBER: firstName, lastName, ADDRESS ΠΡΩΤΑ ===== -->         
+<%= if String.contains?(section_name, "subscriber") do %>            
+  <!-- FIRST NAME -->           
+  <%= if data["firstName"] do %>             
+    <p>               
+      <b>First Name:</b> <%= data["firstName"] %>             
+    </p>           
+  <% end %>
+  
+  <!-- LAST NAME -->           
+  <%= if data["lastName"] do %>             
+    <p>               
+      <b>Last Name:</b> <%= data["lastName"] %>             
+    </p>           
+  <% end %>
+            
+  <!-- ADDRESS -->           
+  <%= if is_map(data["address"]) do %>             
+    <p>               
+      <b>Address:</b><br>               
+      <%= data["address"]["street"] %><br>               
+      <%= data["address"]["city"] %>,               
+      <%= data["address"]["state"] %>               
+      <%= data["address"]["zip"] %>             
+    </p>           
+  <% end %>          
+<% else %>           
+  <!-- ΓΙΑ ΟΛΑ ΤΑ ΑΛΛΑ SECTIONS -->
+  
+  <!-- ΑΝ ΕΧΕΙ firstName/lastName (όπως rendering provider) -->
+  <%= if data["firstName"] || data["lastName"] do %>
+    <%= if data["firstName"] do %>
+      <p><b>First Name:</b> <%= data["firstName"] %></p>
     <% end %>
+    <%= if data["lastName"] do %>
+      <p><b>Last Name:</b> <%= data["lastName"] %></p>
+    <% end %>
+  <% else %>
+    <!-- ΑΛΛΙΩΣ ΑΝ ΕΧΕΙ name (όπως billing provider) -->
+    <%= if data["name"] do %>             
+      <p><b>Name:</b> <%= data["name"] %></p>           
+    <% end %>
+  <% end %>
+  
+  <%= if is_map(data["address"]) do %>             
+    <p>               
+      <b>Address:</b><br>               
+      <%= data["address"]["street"] %><br>               
+      <%= data["address"]["city"] %>,               
+      <%= data["address"]["state"] %>               
+      <%= data["address"]["zip"] %>             
+    </p>           
+  <% end %>            
+  <!-- EXTENSION (ΓΙΑ ΤΑ ΑΛΛΑ) -->           
+  <%= if data["extension"] do %>             
+    <p><b>Extension:</b> <%= data["extension"] %></p>           
+  <% end %>          
+<% end %>
 
-  </div>
+        <!-- ===== ΥΠΟΛΟΙΠΑ ΠΕΔΙΑ ===== -->
+        <%= for {k, v} <- data do %>
+
+          <%= if k not in ["name","firstName","lastName","address","extension"] do %>
+
+            <%= if is_map(v) do %>
+
+              <p><b><%= human_label(k) %>:</b></p>
+              <%= for {kk, vv} <- v do %>
+                <p style="margin-left:16px;">
+                  <%= human_label(kk) %>: <%= vv %>
+                </p>
+              <% end %>
+
+            <% else %>
+
+              <p>
+                <b><%= human_label(k) %>:</b> <%= v %>
+              </p>
+
+            <% end %>
+
+          <% end %>
+
+        <% end %>
+
+      <% end %>
+
+      <!-- ===== LIST SECTIONS ===== -->
+      <%= if is_list(data) and data != [] do %>
+        <table style="width:100%; border-collapse:collapse; margin-top:8px;">
+          <thead>
+            <tr>
+              <%= for key <- Map.keys(List.first(data)) do %>
+                <th style="border:1px solid #334155; padding:4px;">
+                  <%= human_label(key) %>
+                </th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for row <- data do %>
+              <tr>
+                <%= for {_k, v} <- row do %>
+                  <td style="border:1px solid #334155; padding:4px;">
+                    <%= v %>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+
+    </div>
+
+  <% end %>
+<% end %>
 </div>
+</div>
+
 
 
