@@ -19,24 +19,34 @@ defmodule ClaimViewer.Claims do
   end
 
   def extract_date_of_service(sections) do
-  sections
-  |> Enum.find(fn s -> s["section"] == "service_Lines" end)
-  |> case do
-    nil -> nil
-    %{"data" => [first | _]} ->
-      Date.from_iso8601!(first["serviceDate"])
+    sections
+    |> Enum.find(fn s -> get_section_name(s) == "service_Lines" end)
+    |> case do
+      nil -> nil
+      s ->
+        data = get_section_data(s)
+        [first | _] = data
+        Date.from_iso8601!(first["serviceDate"])
+    end
   end
-  end
-
 
   def extract_search_fields(_), do: %{}
 
   defp get_in_section(sections, section_name, path) do
     sections
-    |> Enum.find(fn s -> s["section"] == section_name end)
+    |> Enum.find(fn s -> get_section_name(s) == section_name end)
     |> case do
       nil -> nil
-      %{"data" => data} -> get_in(data, path)
+      s ->
+        data = get_section_data(s)
+        get_in(data, path)
     end
   end
+
+  # Υποστηρίζει ΚΑΙ map ΚΑΙ keyword list
+  defp get_section_name(%{"section" => name}), do: name
+  defp get_section_name(s) when is_list(s), do: Keyword.get(s, :section)
+
+  defp get_section_data(%{"data" => data}), do: data
+  defp get_section_data(s) when is_list(s), do: Keyword.get(s, :data)
 end

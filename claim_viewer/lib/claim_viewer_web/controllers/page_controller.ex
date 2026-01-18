@@ -73,9 +73,16 @@ service_to = params |> Map.get("service_to", "") |> String.trim()
 
   def upload(conn, %{"file" => %Plug.Upload{path: path}}) do
     json =
-      path
-      |> File.read!()
-      |> Jason.decode!()
+  path
+  |> File.read!()
+  |> Jason.decode!()
+
+json =
+  case json do
+    [first | _] when is_list(first) -> first
+    _ -> json
+  end
+
 
     search_fields = Claims.extract_search_fields(json)
     date_of_service =
