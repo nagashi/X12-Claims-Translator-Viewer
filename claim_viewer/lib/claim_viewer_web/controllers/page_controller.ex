@@ -6,30 +6,39 @@ defmodule ClaimViewerWeb.PageController do
   alias ClaimViewer.Claims.Claim
   import Ecto.Query
 
-  def home(conn, params) do
-first = params |> Map.get("patient_first", "") |> String.trim()
-last = params |> Map.get("patient_last", "") |> String.trim()
-payer = params |> Map.get("payer", "") |> String.trim()
-billing_provider = params |> Map.get("billing_provider", "") |> String.trim()
-rendering_provider = params |> Map.get("rendering_provider", "") |> String.trim()
-claim_number = params |> Map.get("claim_number", "") |> String.trim()
-service_from = params |> Map.get("service_from", "") |> String.trim()
-service_to = params |> Map.get("service_to", "") |> String.trim()
+  # ===== Helpers =====
 
+  defp valid_search?(value) do
+    String.length(value) >= 2
+  end
+
+  # ===== Actions =====
+
+  def home(conn, params) do
+    first = params |> Map.get("patient_first", "") |> String.trim()
+    last = params |> Map.get("patient_last", "") |> String.trim()
+    payer = params |> Map.get("payer", "") |> String.trim()
+    billing_provider = params |> Map.get("billing_provider", "") |> String.trim()
+    rendering_provider = params |> Map.get("rendering_provider", "") |> String.trim()
+    claim_number = params |> Map.get("claim_number", "") |> String.trim()
+    service_from = params |> Map.get("service_from", "") |> String.trim()
+    service_to = params |> Map.get("service_to", "") |> String.trim()
 
     has_search? =
-      first != "" or last != "" or payer != "" or
-        billing_provider != "" or rendering_provider != "" or
-        claim_number != "" or service_from != "" or service_to != ""
+      valid_search?(first) or
+      valid_search?(last) or
+      valid_search?(payer) or
+      valid_search?(billing_provider) or
+      valid_search?(rendering_provider) or
+      valid_search?(claim_number)
 
     claims =
       if has_search? do
         from(c in Claim)
-        |> maybe_like(:patient_first_name, first)
-        |> maybe_like(:patient_last_name, last)
+        |> maybe_full_name(first, last)
         |> maybe_like(:payer_name, payer)
         |> maybe_like(:billing_provider_name, billing_provider)
-        |> maybe_like(:rendering_provider_npi, rendering_provider)
+        |> maybe_exact(:rendering_provider_npi, rendering_provider)
         |> maybe_like(:clearinghouse_claim_number, claim_number)
         |> maybe_date_range(service_from, service_to)
         |> order_by([c], desc: c.inserted_at)
@@ -73,24 +82,24 @@ service_to = params |> Map.get("service_to", "") |> String.trim()
 
   def upload(conn, %{"file" => %Plug.Upload{path: path}}) do
     json =
-  path
-  |> File.read!()
-  |> Jason.decode!()
+      path
+      |> File.read!()
+      |> Jason.decode!()
 
-json =
-  case json do
-    [first | _] when is_list(first) -> first
-    _ -> json
-  end
-
+    json =
+      case json do
+        [first | _] when is_list(first) -> first
+        _ -> json
+      end
 
     search_fields = Claims.extract_search_fields(json)
+
     date_of_service =
-  try do
-    Claims.extract_date_of_service(json)
-  rescue
-    _ -> nil
-  end
+      try do
+        Claims.extract_date_of_service(json)
+      rescue
+        _ -> nil
+      end
 
     attrs =
       %{raw_json: json, date_of_service: date_of_service}
@@ -109,45 +118,74 @@ json =
     |> redirect(to: "/")
   end
 
+  # ===== Query helpers =====
+
   defp maybe_like(query, _field, ""), do: query
   defp maybe_like(query, field, value) do
     where(query, [c], ilike(field(c, ^field), ^"%#{value}%"))
   end
 
-defp maybe_date_range(query, "", ""), do: query
-defp maybe_date_range(query, from, "") do
-  case Date.from_iso8601(from) do
-    {:ok, from_date} ->
-      where(query, [c], c.date_of_service >= ^from_date)
-
-    _ ->
-      query
+  defp maybe_exact(query, _field, ""), do: query
+  defp maybe_exact(query, field, value) do
+    where(query, [c], field(c, ^field) == ^value)
   end
-end
 
-defp maybe_date_range(query, "", to) do
-  case Date.from_iso8601(to) do
-    {:ok, to_date} ->
-      where(query, [c], c.date_of_service <= ^to_date)
+  defp maybe_full_name(query, first, last) do
+    cond do
+      first != "" and last != "" ->
+        where(query, [c],
+          ilike(c.patient_first_name, ^"%#{first}%") and
+          ilike(c.patient_last_name, ^"%#{last}%")
+        )
 
-    _ ->
-      query
+      first != "" ->
+        where(query, [c],
+          ilike(c.patient_first_name, ^"%#{first}%")
+        )
+
+      last != "" ->
+        where(query, [c],
+          ilike(c.patient_last_name, ^"%#{last}%")
+        )
+
+      true ->
+        query
+    end
   end
-end
 
-defp maybe_date_range(query, from, to) do
-  case {Date.from_iso8601(from), Date.from_iso8601(to)} do
-    {{:ok, from_date}, {:ok, to_date}} ->
-      where(query, [c],
-        not is_nil(c.date_of_service) and
-        c.date_of_service >= ^from_date and
-        c.date_of_service <= ^to_date
-      )
+  defp maybe_date_range(query, "", ""), do: query
 
-    _ ->
-      query
+  defp maybe_date_range(query, from, "") do
+    case Date.from_iso8601(from) do
+      {:ok, from_date} ->
+        where(query, [c], c.date_of_service >= ^from_date)
+
+      _ ->
+        query
+    end
   end
-end
 
+  defp maybe_date_range(query, "", to) do
+    case Date.from_iso8601(to) do
+      {:ok, to_date} ->
+        where(query, [c], c.date_of_service <= ^to_date)
 
+      _ ->
+        query
+    end
+  end
+
+  defp maybe_date_range(query, from, to) do
+    case {Date.from_iso8601(from), Date.from_iso8601(to)} do
+      {{:ok, from_date}, {:ok, to_date}} ->
+        where(query, [c],
+          not is_nil(c.date_of_service) and
+          c.date_of_service >= ^from_date and
+          c.date_of_service <= ^to_date
+        )
+
+      _ ->
+        query
+    end
+  end
 end

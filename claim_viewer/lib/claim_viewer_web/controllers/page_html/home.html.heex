@@ -44,43 +44,56 @@
       });
     </script>
 
-    <!-- SEARCH -->
-    <form method="get" action="/">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-        <input name="patient_first" value={@patient_first} placeholder="Patient first name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
- />
-        <input name="patient_last" value={@patient_last} placeholder="Patient last name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
- />
-        <input name="payer" value={@payer} placeholder="Payer name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
- />
-        <input name="billing_provider" value={@billing_provider} placeholder="Billing provider" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
- />
-        <input name="rendering_provider" value={@rendering_provider} placeholder="Rendering provider NPI" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
- />
-        <input name="claim_number" value={@claim_number} placeholder="Claim #" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;"
- />
+<!-- SEARCH -->
+<form method="get" action="/">
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+    <input name="patient_first" value={@patient_first} placeholder="Patient first name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
+    <input name="patient_last" value={@patient_last} placeholder="Patient last name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
+    <input name="payer" value={@payer} placeholder="Payer name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
+    <input name="billing_provider" value={@billing_provider} placeholder="Billing provider" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
+    
+    <div>
+      <input 
+        name="rendering_provider" 
+        value={@rendering_provider} 
+        placeholder="Rendering provider NPI (10 digits)" 
+        pattern="[0-9]{10}" 
+        maxlength="10"
+        title="NPI must be exactly 10 digits"
+        style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;width:100%;" 
+      />
+    </div>
+    
+    <input name="claim_number" value={@claim_number} placeholder="Claim #" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
+    
+    <div style="position:relative;">
+      <input 
+        type="date" 
+        name="service_from" 
+        value={@service_from}
+        style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px;border-radius:8px;width:100%;cursor:pointer;" 
+      />
+    </div>
 
-<input type="date" name="service_from" value={@service_from}
-  style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px;border-radius:8px;" />
+    <div style="position:relative;">
+      <input 
+        type="date" 
+        name="service_to" 
+        value={@service_to}
+        style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px;border-radius:8px;width:100%;cursor:pointer;" 
+      />
+    </div>
+  </div>
 
-<input type="date" name="service_to" value={@service_to}
-  style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px;border-radius:8px;" />
-
-      </div>
-
-      <div style="margin-top:18px; display:flex; gap:12px;">
-        <button type="submit"
-  style="background:#22c55e;color:#020617;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;">
-  Search
-</button>
-
-        <a href="/"
-  style="background:#334155;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">
-  Clear
-</a>
-
-      </div>
-    </form>
+  <div style="margin-top:18px; display:flex; gap:12px;">
+    <button type="submit" style="background:#22c55e;color:#020617;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
+      Search
+    </button>
+    <a href="/" style="background:#334155;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">
+      Clear
+    </a>
+  </div>
+</form>
 
     <!-- MESSAGES -->
     <%= if !@show_results and @json == nil do %>
@@ -91,7 +104,7 @@
       <p style="margin-top:20px; color:#f87171;">No results found.</p>
     <% end %>
 
-    <!-- SEARCH RESULTS (ΔΟΥΛΕΥΕΙ) -->
+    <!-- SEARCH RESULTS -->
     <%= if @claims != [] do %>
       <h2 style="margin-top:30px; color:#38bdf8;">Search Results</h2>
 
@@ -119,153 +132,193 @@
       </table>
     <% end %>
 
-<!-- FULL CLAIM VIEW -->
-<%= if @json do %>
-  <%= for section <- @json do %>
+    <!-- FULL CLAIM VIEW -->
+    <%= if @json do %>
+      <%= for section <- @json do %>
 
-    <div style="margin-top:40px;">
+        <div style="margin-top:40px;">
 
-      <h2 style="
-        font-size:14px;
-        font-weight:bold;
-        color:#38bdf8;
-        border-bottom:1px solid #38bdf8;
-        padding-bottom:4px;
-      ">
-        <%= section["section"]
-            |> String.replace("_", " ")
-            |> String.upcase() %>
-      </h2>
+          <h2 style="
+            font-size:14px;
+            font-weight:bold;
+            color:#38bdf8;
+            border-bottom:1px solid #38bdf8;
+            padding-bottom:4px;
+          ">
+            <%= section["section"]
+                |> String.replace("_", " ")
+                |> String.upcase() %>
+          </h2>
 
-      <% data = section["data"] || %{} %>
-      <% section_name =
-        (section["section"] || "")
-        |> to_string()
-        |> String.downcase()
-      %>
+          <% data = section["data"] || %{} %>
+          <% section_name =
+            (section["section"] || "")
+            |> to_string()
+            |> String.downcase()
+          %>
 
-      <!-- ===== MAP SECTIONS ===== -->
-      <%= if is_map(data) and data != %{} do %>
+          <!-- ===== MAP SECTIONS ===== -->
+          <%= if is_map(data) and data != %{} do %>
 
-<!-- ===== SUBSCRIBER: firstName, lastName, ADDRESS ΠΡΩΤΑ ===== -->         
-<%= if String.contains?(section_name, "subscriber") do %>            
-  <!-- FIRST NAME -->           
-  <%= if data["firstName"] do %>             
-    <p>               
-      <b>First Name:</b> <%= data["firstName"] %>             
-    </p>           
-  <% end %>
-  
-  <!-- LAST NAME -->           
-  <%= if data["lastName"] do %>             
-    <p>               
-      <b>Last Name:</b> <%= data["lastName"] %>             
-    </p>           
-  <% end %>
-            
-  <!-- ADDRESS -->           
-  <%= if is_map(data["address"]) do %>             
-    <p>               
-      <b>Address:</b><br>               
-      <%= data["address"]["street"] %><br>               
-      <%= data["address"]["city"] %>,               
-      <%= data["address"]["state"] %>               
-      <%= data["address"]["zip"] %>             
-    </p>           
-  <% end %>          
-<% else %>           
-  <!-- ΓΙΑ ΟΛΑ ΤΑ ΑΛΛΑ SECTIONS -->
-  
-  <!-- ΑΝ ΕΧΕΙ firstName/lastName (όπως rendering provider) -->
-  <%= if data["firstName"] || data["lastName"] do %>
-    <%= if data["firstName"] do %>
-      <p><b>First Name:</b> <%= data["firstName"] %></p>
-    <% end %>
-    <%= if data["lastName"] do %>
-      <p><b>Last Name:</b> <%= data["lastName"] %></p>
-    <% end %>
-  <% else %>
-    <!-- ΑΛΛΙΩΣ ΑΝ ΕΧΕΙ name (όπως billing provider) -->
-    <%= if data["name"] do %>             
-      <p><b>Name:</b> <%= data["name"] %></p>           
-    <% end %>
-  <% end %>
-  
-  <%= if is_map(data["address"]) do %>             
-    <p>               
-      <b>Address:</b><br>               
-      <%= data["address"]["street"] %><br>               
-      <%= data["address"]["city"] %>,               
-      <%= data["address"]["state"] %>               
-      <%= data["address"]["zip"] %>             
-    </p>           
-  <% end %>            
-  <!-- EXTENSION (ΓΙΑ ΤΑ ΑΛΛΑ) -->           
-  <%= if data["extension"] do %>             
-    <p><b>Extension:</b> <%= data["extension"] %></p>           
-  <% end %>          
-<% end %>
-
-        <!-- ===== ΥΠΟΛΟΙΠΑ ΠΕΔΙΑ ===== -->
-        <%= for {k, v} <- data do %>
-
-          <%= if k not in ["name","firstName","lastName","address","extension"] do %>
-
-            <%= if is_map(v) do %>
-
-              <p><b><%= human_label(k) %>:</b></p>
-              <%= for {kk, vv} <- v do %>
-                <p style="margin-left:16px;">
-                  <%= human_label(kk) %>: <%= vv %>
-                </p>
+            <!-- ===== SUBSCRIBER: firstName, lastName, ADDRESS ΠΡΩΤΑ ===== -->         
+            <%= if String.contains?(section_name, "subscriber") do %>            
+              <!-- FIRST NAME -->           
+              <%= if data["firstName"] do %>             
+                <p>               
+                  <b>First Name:</b> <%= data["firstName"] %>             
+                </p>           
               <% end %>
+              
+              <!-- LAST NAME -->           
+              <%= if data["lastName"] do %>             
+                <p>               
+                  <b>Last Name:</b> <%= data["lastName"] %>             
+                </p>           
+              <% end %>
+                        
+              <!-- ADDRESS -->           
+              <%= if is_map(data["address"]) do %>             
+                <p>               
+                  <b>Address:</b><br>               
+                  <%= data["address"]["street"] %><br>               
+                  <%= data["address"]["city"] %>,               
+                  <%= data["address"]["state"] %>               
+                  <%= data["address"]["zip"] %>             
+                </p>           
+              <% end %>          
+            <% else %>           
+              <!-- ΓΙΑ ΟΛΑ ΤΑ ΑΛΛΑ SECTIONS -->
+              
+              <!-- ΑΝ ΕΧΕΙ firstName/lastName (όπως rendering provider) -->
+              <%= if data["firstName"] || data["lastName"] do %>
+                <%= if data["firstName"] do %>
+                  <p><b>First Name:</b> <%= data["firstName"] %></p>
+                <% end %>
+                <%= if data["lastName"] do %>
+                  <p><b>Last Name:</b> <%= data["lastName"] %></p>
+                <% end %>
+              <% else %>
+                <!-- ΑΛΛΙΩΣ ΑΝ ΕΧΕΙ name (όπως billing provider) -->
+                <%= if data["name"] do %>             
+                  <p><b>Name:</b> <%= data["name"] %></p>           
+                <% end %>
+              <% end %>
+              
+              <%= if is_map(data["address"]) do %>             
+                <p>               
+                  <b>Address:</b><br>               
+                  <%= data["address"]["street"] %><br>               
+                  <%= data["address"]["city"] %>,               
+                  <%= data["address"]["state"] %>               
+                  <%= data["address"]["zip"] %>             
+                </p>           
+              <% end %>            
+              <!-- EXTENSION (ΓΙΑ ΤΑ ΑΛΛΑ) -->           
+              <%= if data["extension"] do %>             
+                <p><b>Extension:</b> <%= data["extension"] %></p>           
+              <% end %>          
+            <% end %>
 
-            <% else %>
+            <!-- ===== ΥΠΟΛΟΙΠΑ ΠΕΔΙΑ ===== -->
+            <%= for {k, v} <- data do %>
 
-              <p>
-                <b><%= human_label(k) %>:</b> <%= v %>
-              </p>
+              <%= if k not in ["name","firstName","lastName","address","extension"] do %>
+
+                <%= if is_map(v) do %>
+
+                  <!-- ΑΝ ΕΙΝΑΙ INDICATORS (BADGES) -->
+                  <%= if k == "indicators" do %>
+                    <p style="margin-top:12px;"><b><%= human_label(k) %>:</b></p>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                      <%= for {kk, vv} <- v do %>
+                        <% is_yes = vv in ["Y", "A", "I", "y", "a", "i"] %>
+                        <% badge_bg = if is_yes, do: "#059669", else: "#6b7280" %>
+                        <% badge_title = if is_yes, do: "Approved / Consent Given", else: "Not Applicable / No Consent" %>
+                        <span style={"background:#{badge_bg}; color:white; padding:6px 14px; border-radius:6px; font-size:13px; font-weight:500;"} title={badge_title}>
+                          <%= human_label(kk) %>
+                        </span>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <!-- ΑΛΛΑ MAP FIELDS -->
+                    <p><b><%= human_label(k) %>:</b></p>
+                    <%= for {kk, vv} <- v do %>
+                      <p style="margin-left:16px;">
+                        <%= human_label(kk) %>: <%= vv %>
+                      </p>
+                    <% end %>
+                  <% end %>
+
+                <% else %>
+
+                  <!-- FORMAT DATES -->
+                  <% is_date_field = k in ["dob", "onsetDate", "date"] %>
+                  <% display_value = if is_date_field, do: format_date(v), else: v %>
+                  
+                  <p>
+                    <b><%= human_label(k) %>:</b> <%= display_value %>
+                  </p>
+
+                <% end %>
+
+              <% end %>
 
             <% end %>
 
           <% end %>
 
-        <% end %>
-
-      <% end %>
-
-      <!-- ===== LIST SECTIONS ===== -->
-      <%= if is_list(data) and data != [] do %>
-        <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-          <thead>
-            <tr>
-              <%= for key <- Map.keys(List.first(data)) do %>
-                <th style="border:1px solid #334155; padding:4px;">
-                  <%= human_label(key) %>
-                </th>
-              <% end %>
-            </tr>
-          </thead>
-          <tbody>
-            <%= for row <- data do %>
-              <tr>
-                <%= for {_k, v} <- row do %>
-                  <td style="border:1px solid #334155; padding:4px;">
-                    <%= v %>
-                  </td>
+          <!-- ===== LIST SECTIONS ===== -->
+          <%= if is_list(data) and data != [] do %>
+            <% 
+              # Ταξινόμηση των keys ώστε το lineNumber να είναι πρώτο
+              first_row = List.first(data)
+              all_keys = Map.keys(first_row)
+              sorted_keys = if "lineNumber" in all_keys do
+                ["lineNumber" | Enum.reject(all_keys, &(&1 == "lineNumber"))]
+              else
+                all_keys
+              end
+            %>
+            <table style="width:100%; border-collapse:collapse; margin-top:8px;">
+              <thead>
+                <tr>
+                  <%= for key <- sorted_keys do %>
+                    <th style="border:1px solid #334155; padding:4px;">
+                      <%= human_label(key) %>
+                    </th>
+                  <% end %>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for row <- data do %>
+                  <tr>
+                    <%= for key <- sorted_keys do %>
+                      <% is_date_field = key == "serviceDate" %>
+                      <% cell_value = if is_date_field, do: format_date(row[key]), else: row[key] %>
+                      <td style="border:1px solid #334155; padding:4px;">
+                        <%= cell_value %>
+                      </td>
+                    <% end %>
+                  </tr>
                 <% end %>
-              </tr>
+              </tbody>
+            </table>
+            
+            <!-- TOTAL (ΓΙΑ SERVICE LINES ΜΟΝΟ) -->
+            <%= if String.contains?(section_name, "service") do %>
+              <% total = Enum.reduce(data, 0, fn row, acc -> 
+                charge = row["charge"] || 0
+                acc + (if is_number(charge), do: charge, else: 0)
+              end) %>
+              <p style="margin-top:12px; font-size:18px; font-weight:bold; color:#22c55e;">
+                TOTAL: <%= :erlang.float_to_binary(total * 1.0, decimals: 2) %>
+              </p>
             <% end %>
-          </tbody>
-        </table>
+          <% end %>
+
+        </div>
+
       <% end %>
-
-    </div>
-
-  <% end %>
-<% end %>
+    <% end %>
+  </div>
 </div>
-</div>
-
-
-
