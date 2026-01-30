@@ -14,32 +14,16 @@ defmodule ClaimViewerWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/", ClaimViewerWeb do
-    pipe_through :browser
+scope "/", ClaimViewerWeb do
+  pipe_through :browser
 
- # Handles HTTP GET requests to the root URL ("/")
-# Calls the home/2 action in PageController
-# Used to render the main home page of the application
-get "/", PageController, :home
-
-get "/claims/:id", PageController, :show
-
-# Handles HTTP GET requests to "/claim"
-# Calls the claim/2 action in PageController
-# Intended to display a claim-related page (if implemented)
-get "/claim", PageController, :claim
-
-
-# Handles HTTP POST requests to "/upload"
-# Calls the upload/2 action in PageController
-# Used for uploading and processing a JSON claim file
-post "/upload", PageController, :upload
-
-
-
-
-
-  end
+  get "/", PageController, :dashboard  # ← ΑΛΛΑΞΕ από :home σε :dashboard
+  get "/search", PageController, :home  # ← ΝΕΟ - το search πάει εδώ
+  get "/claims/:id", PageController, :show
+  get "/claims/:id/export", PageController, :export_pdf
+  get "/claim", PageController, :claim
+  post "/upload", PageController, :upload
+end
 
   # Other scopes may use custom stacks.
   # scope "/api", ClaimViewerWeb do

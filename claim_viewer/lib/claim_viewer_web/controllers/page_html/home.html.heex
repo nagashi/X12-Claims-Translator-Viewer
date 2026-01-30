@@ -45,7 +45,7 @@
     </script>
 
 <!-- SEARCH -->
-<form method="get" action="/">
+<form method="get" action="/search">
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
     <input name="patient_first" value={@patient_first} placeholder="Patient first name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
     <input name="patient_last" value={@patient_last} placeholder="Patient last name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
@@ -89,7 +89,7 @@
     <button type="submit" style="background:#22c55e;color:#020617;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
       Search
     </button>
-    <a href="/" style="background:#334155;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">
+    <a href="/search" style="background:#334155;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">
       Clear
     </a>
   </div>
@@ -106,7 +106,12 @@
 
     <!-- SEARCH RESULTS -->
     <%= if @claims != [] do %>
-      <h2 style="margin-top:30px; color:#38bdf8;">Search Results</h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px;">
+        <h2 style="color:#38bdf8; margin:0;">Search Results</h2>
+        <p style="color:#94a3b8; margin:0; font-size:14px;">
+          Showing <%= (@page - 1) * 10 + 1 %> - <%= min(@page * 10, @total_count) %> of <%= @total_count %> results
+        </p>
+      </div>
 
       <table style="width:100%; margin-top:10px; border-collapse:collapse;">
         <thead>
@@ -130,10 +135,156 @@
           <% end %>
         </tbody>
       </table>
+
+      <!-- PAGINATION -->
+      <%= if @total_pages > 1 do %>
+        <div style="margin-top:20px; display:flex; gap:8px; justify-content:center; align-items:center;">
+          <!-- Previous Button -->
+          <%= if @page > 1 do %>
+            <a href={"/search?patient_first=#{@patient_first}&patient_last=#{@patient_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{@page - 1}"} 
+               style="background:#334155; color:white; padding:8px 12px; border-radius:6px; text-decoration:none; font-size:14px;">
+              ← Previous
+            </a>
+          <% else %>
+            <span style="background:#1e293b; color:#64748b; padding:8px 12px; border-radius:6px; font-size:14px;">
+              ← Previous
+            </span>
+          <% end %>
+
+          <!-- Page Numbers -->
+          <%= for p <- max(1, @page - 2)..min(@total_pages, @page + 2) do %>
+            <%= if p == @page do %>
+              <span style="background:#38bdf8; color:#020617; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:14px;">
+                <%= p %>
+              </span>
+            <% else %>
+              <a href={"/search?patient_first=#{@patient_first}&patient_last=#{@patient_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{p}"} 
+                 style="background:#334155; color:white; padding:8px 12px; border-radius:6px; text-decoration:none; font-size:14px;">
+                <%= p %>
+              </a>
+            <% end %>
+          <% end %>
+
+          <!-- Next Button -->
+          <%= if @page < @total_pages do %>
+            <a href={"/search?patient_first=#{@patient_first}&patient_last=#{@patient_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{@page + 1}"} 
+               style="background:#334155; color:white; padding:8px 12px; border-radius:6px; text-decoration:none; font-size:14px;">
+              Next →
+            </a>
+          <% else %>
+            <span style="background:#1e293b; color:#64748b; padding:8px 12px; border-radius:6px; font-size:14px;">
+              Next →
+            </span>
+          <% end %>
+        </div>
+      <% end %>
     <% end %>
 
-    <!-- FULL CLAIM VIEW -->
+<!-- FULL CLAIM VIEW -->
     <%= if @json do %>
+      
+      <!-- ===== CLAIM SUMMARY HEADER ===== -->
+      <% 
+        # Extract summary data from sections
+        subscriber = Enum.find(@json, fn s -> s["section"] == "subscriber" end) || %{}
+        subscriber_data = subscriber["data"] || %{}
+        
+        payer = Enum.find(@json, fn s -> s["section"] == "payer" end) || %{}
+        payer_data = payer["data"] || %{}
+        
+        claim = Enum.find(@json, fn s -> s["section"] == "claim" end) || %{}
+        claim_data = claim["data"] || %{}
+        
+        service_lines = Enum.find(@json, fn s -> String.contains?(s["section"] || "", "service") end) || %{}
+        service_data = service_lines["data"] || []
+        
+        # Get date range from service lines
+        service_dates = if is_list(service_data) do
+          service_data
+          |> Enum.map(fn line -> line["serviceDate"] end)
+          |> Enum.reject(&is_nil/1)
+        else
+          []
+        end
+        
+        first_date = if service_dates != [], do: Enum.min(service_dates), else: nil
+        last_date = if service_dates != [], do: Enum.max(service_dates), else: nil
+        
+        # Determine status based on indicators
+        indicators = claim_data["indicators"] || %{}
+        all_approved = Enum.all?(Map.values(indicators), fn v -> v in ["Y", "A", "I"] end)
+        status = if all_approved and indicators != %{}, do: "Approved", else: "Pending Review"
+        status_color = if all_approved and indicators != %{}, do: "#22c55e", else: "#fbbf24"
+      %>
+      
+      <div style="
+        margin-top:30px;
+        margin-bottom:30px;
+        background:#1e293b;
+        border:2px solid #38bdf8;
+        border-radius:12px;
+        padding:20px 24px;
+        box-shadow:0 4px 20px rgba(56,189,248,0.2);
+      ">
+        <h2 style="
+          font-size:18px;
+          font-weight:bold;
+          color:#38bdf8;
+          margin:0 0 16px 0;
+          border-bottom:1px solid #334155;
+          padding-bottom:8px;
+        ">
+          CLAIM SUMMARY
+        </h2>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px 24px;">
+          <div>
+            <span style="color:#94a3b8; font-size:13px;">Patient:</span>
+            <span style="color:white; font-weight:600; margin-left:8px;">
+              <%= subscriber_data["firstName"] %> <%= subscriber_data["lastName"] %>
+              <%= if subscriber_data["dob"] do %>
+                <span style="color:#94a3b8; font-weight:400;">(DOB: <%= format_date(subscriber_data["dob"]) %>)</span>
+              <% end %>
+            </span>
+          </div>
+          
+          <div>
+            <span style="color:#94a3b8; font-size:13px;">Payer:</span>
+            <span style="color:white; font-weight:600; margin-left:8px;"><%= payer_data["name"] %></span>
+          </div>
+          
+          <div>
+            <span style="color:#94a3b8; font-size:13px;">Claim #:</span>
+            <span style="color:white; font-weight:600; margin-left:8px;"><%= claim_data["clearinghouseClaimNumber"] || claim_data["id"] %></span>
+          </div>
+          
+          <div>
+            <span style="color:#94a3b8; font-size:13px;">Service Dates:</span>
+            <span style="color:white; font-weight:600; margin-left:8px;">
+              <%= if first_date && last_date do %>
+                <%= if first_date == last_date do %>
+                  <%= format_date(first_date) %>
+                <% else %>
+                  <%= format_date(first_date) %> – <%= format_date(last_date) %>
+                <% end %>
+              <% end %>
+            </span>
+          </div>
+          
+          <div>
+            <span style="color:#94a3b8; font-size:13px;">Total Charge:</span>
+            <span style="color:#22c55e; font-weight:700; font-size:16px; margin-left:8px;">
+              $<%= if claim_data["totalCharge"], do: :erlang.float_to_binary(claim_data["totalCharge"] * 1.0, decimals: 2), else: "0.00" %>
+            </span>
+          </div>
+          
+          <div>
+            <span style="color:#94a3b8; font-size:13px;">Status:</span>
+            <span style={"color:#{status_color}; font-weight:700; margin-left:8px;"}><%= status %></span>
+          </div>
+        </div>
+      </div>
+
       <%= for section <- @json do %>
 
         <div style="margin-top:40px;">
@@ -244,7 +395,20 @@
                     <p><b><%= human_label(k) %>:</b></p>
                     <%= for {kk, vv} <- v do %>
                       <p style="margin-left:16px;">
-                        <%= human_label(kk) %>: <%= vv %>
+                        <% formatted =
+  cond do
+    kk == "phone" and is_binary(vv) and String.length(vv) == 10 ->
+      "(" <> String.slice(vv,0,3) <> ") " <>
+      String.slice(vv,3,3) <> "-" <>
+      String.slice(vv,6,4)
+
+    true ->
+      vv
+  end
+%>
+
+<%= human_label(kk) %>: <%= formatted %>
+
                       </p>
                     <% end %>
                   <% end %>
@@ -319,6 +483,14 @@
         </div>
 
       <% end %>
+      
+<!-- EXPORT PDF BUTTON - ΕΔΩ ΣΤΟ ΤΕΛΟΣ -->
+<div style="margin-top:40px; text-align:center;">
+  <a href={"/claims/#{@claim_id}/export"} 
+     style="background:#22c55e; color:#020617; padding:14px 32px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; display:inline-block; box-shadow: 0 4px 10px rgba(34,197,94,0.3);">
+     Export
+  </a>
+</div>
     <% end %>
   </div>
 </div>
