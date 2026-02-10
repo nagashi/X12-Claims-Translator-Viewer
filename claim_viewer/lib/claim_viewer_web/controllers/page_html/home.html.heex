@@ -106,14 +106,14 @@
 
     <!-- SEARCH RESULTS -->
     <%= if @claims != [] do %>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px;">
+      <div class="fade-in" style="display:flex; justify-content:space-between; align-items:center; margin-top:30px;">
         <h2 style="color:#38bdf8; margin:0;">Search Results</h2>
         <p style="color:#94a3b8; margin:0; font-size:14px;">
           Showing <%= (@page - 1) * 10 + 1 %> - <%= min(@page * 10, @total_count) %> of <%= @total_count %> results
         </p>
       </div>
 
-      <table style="width:100%; margin-top:10px; border-collapse:collapse;">
+      <table class="fade-in" style="width:100%; margin-top:10px; border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:2px solid #38bdf8;">
             <th align="left">Patient</th>
@@ -138,7 +138,7 @@
 
       <!-- PAGINATION -->
       <%= if @total_pages > 1 do %>
-        <div style="margin-top:20px; display:flex; gap:8px; justify-content:center; align-items:center;">
+        <div class="fade-in" style="margin-top:20px; display:flex; gap:8px; justify-content:center; align-items:center;">
           <!-- Previous Button -->
           <%= if @page > 1 do %>
             <a href={"/search?patient_first=#{@patient_first}&patient_last=#{@patient_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{@page - 1}"} 
@@ -183,6 +183,26 @@
 <!-- FULL CLAIM VIEW -->
     <%= if @json do %>
       
+      <%
+        # Detect claim type from version
+        transaction = Enum.find(@json, fn s -> s["section"] == "transaction" end) || %{}
+        version = get_in(transaction, ["data", "version"]) || ""
+        
+        {claim_type, claim_label, badge_color} = cond do
+          String.contains?(version, "X222") -> {"837P", "PROFESSIONAL", "#3b82f6"}
+          String.contains?(version, "X223") -> {"837I", "INSTITUTIONAL", "#10b981"}
+          String.contains?(version, "X224") -> {"837D", "DENTAL", "#f59e0b"}
+          true -> {"837", "UNKNOWN", "#6b7280"}
+        end
+      %>
+      
+      <!-- CLAIM TYPE BADGE -->
+      <div class="fade-in" style="margin-top:30px; margin-bottom:12px;">
+        <span style={"background:#{badge_color}; color:white; padding:8px 20px; border-radius:8px; font-weight:bold; font-size:15px; box-shadow:0 3px 10px rgba(0,0,0,0.4); display:inline-block;"}>
+          <%= claim_type %> - <%= claim_label %>
+        </span>
+      </div>
+      
       <!-- ===== CLAIM SUMMARY HEADER ===== -->
       <% 
         # Extract summary data from sections
@@ -197,6 +217,11 @@
         
         service_lines = Enum.find(@json, fn s -> String.contains?(s["section"] || "", "service") end) || %{}
         service_data = service_lines["data"] || []
+        
+        # Get rendering provider NPI
+        rendering_provider = Enum.find(@json, fn s -> s["section"] == "renderingProvider" end) || %{}
+        rendering_provider_data = rendering_provider["data"] || %{}
+        rendering_npi = rendering_provider_data["npi"] || ""
         
         # Get date range from service lines
         service_dates = if is_list(service_data) do
@@ -217,8 +242,7 @@
         status_color = if all_approved and indicators != %{}, do: "#22c55e", else: "#fbbf24"
       %>
       
-      <div style="
-        margin-top:30px;
+      <div class="fade-in" style="
         margin-bottom:30px;
         background:#1e293b;
         border:2px solid #38bdf8;
@@ -282,12 +306,19 @@
             <span style="color:#94a3b8; font-size:13px;">Status:</span>
             <span style={"color:#{status_color}; font-weight:700; margin-left:8px;"}><%= status %></span>
           </div>
+          
+          <%= if rendering_npi != "" do %>
+            <div>
+              <span style="color:#94a3b8; font-size:13px;">Rendering Provider NPI:</span>
+              <span style="color:white; font-weight:600; margin-left:8px;"><%= rendering_npi %></span>
+            </div>
+          <% end %>
         </div>
       </div>
 
       <%= for section <- @json do %>
 
-        <div style="margin-top:40px;">
+        <div class="fade-in" style="margin-top:40px;">
 
           <h2 style="
             font-size:14px;
@@ -484,13 +515,57 @@
 
       <% end %>
       
-<!-- EXPORT PDF BUTTON - ΕΔΩ ΣΤΟ ΤΕΛΟΣ -->
-<div style="margin-top:40px; text-align:center;">
-  <a href={"/claims/#{@claim_id}/export"} 
-     style="background:#22c55e; color:#020617; padding:14px 32px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; display:inline-block; box-shadow: 0 4px 10px rgba(34,197,94,0.3);">
-     Export
-  </a>
+<!-- EXPORT DROPDOWN BUTTON -->
+<div class="fade-in" style="margin-top:40px; text-align:center;">
+  <div style="display:inline-block; position:relative;">
+    <button 
+      onclick="document.getElementById('export-menu').style.display = document.getElementById('export-menu').style.display === 'block' ? 'none' : 'block'"
+      style="background:#22c55e; color:#020617; padding:14px 32px; border-radius:8px; font-weight:bold; font-size:16px; border:none; cursor:pointer; box-shadow: 0 4px 10px rgba(34,197,94,0.3);">
+      📥 Export ▼
+    </button>
+    
+    <!-- DROPDOWN MENU -->
+    <div id="export-menu" style="display:none; position:absolute; top:60px; left:50%; transform:translateX(-50%); background:#1e293b; border:2px solid #38bdf8; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.5); min-width:200px; z-index:10;">
+      <a href={"/claims/#{@claim_id}/export"} 
+         style="display:block; padding:12px 20px; color:white; text-decoration:none; border-bottom:1px solid #334155; font-size:15px;">
+        📄 Export as PDF
+      </a>
+      <a href={"/claims/#{@claim_id}/export/csv"} 
+         style="display:block; padding:12px 20px; color:white; text-decoration:none; font-size:15px;">
+        📊 Export as CSV
+      </a>
+    </div>
+  </div>
 </div>
+
+<script>
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('export-menu');
+    const button = e.target.closest('button');
+    if (menu && !button && !menu.contains(e.target)) {
+      menu.style.display = 'none';
+    }
+  });
+</script>
     <% end %>
   </div>
 </div>
+
+<!-- FADE-IN ANIMATION CSS -->
+<style>
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+</style>

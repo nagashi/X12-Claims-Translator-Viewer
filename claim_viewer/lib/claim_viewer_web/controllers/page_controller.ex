@@ -39,7 +39,6 @@ thirty_days_ago = NaiveDateTime.utc_now() |> NaiveDateTime.add(-30 * 24 * 60 * 6
 old_claims = Repo.all(from c in Claim, where: c.inserted_at < ^thirty_days_ago) |> length()
 
 # This month
-# This month
 now = NaiveDateTime.utc_now()
 first_day = %{now | day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 0}}
 this_month_count = Repo.aggregate(from(c in Claim, where: c.inserted_at >= ^first_day), :count, :id)
@@ -226,6 +225,179 @@ end
         |> redirect(to: "/claims/#{id}")
     end
   end
+
+def export_csv(conn, %{"id" => id}) do
+  claim = Repo.get!(Claim, id)
+
+  # Extract summary data (like browser)
+  subscriber = Enum.find(claim.raw_json, fn s -> s["section"] == "subscriber" end) || %{}
+  subscriber_data = subscriber["data"] || %{}
+
+  payer = Enum.find(claim.raw_json, fn s -> s["section"] == "payer" end) || %{}
+  payer_data = payer["data"] || %{}
+
+  claim_section = Enum.find(claim.raw_json, fn s -> s["section"] == "claim" end) || %{}
+  claim_data = claim_section["data"] || %{}
+
+  service_lines_section = Enum.find(claim.raw_json, fn s ->
+    String.downcase(s["section"] || "") |> String.contains?("service")
+  end) || %{}
+  service_data = service_lines_section["data"] || []
+
+  # Get service date range
+  service_dates = if is_list(service_data) and service_data != [] do
+    service_data |> Enum.map(fn line -> line["serviceDate"] end) |> Enum.reject(&is_nil/1)
+  else
+    []
+  end
+
+  first_date = if service_dates != [], do: Enum.min(service_dates), else: nil
+  last_date = if service_dates != [], do: Enum.max(service_dates), else: nil
+
+  # Determine status
+  indicators = claim_data["indicators"] || %{}
+  all_approved = Enum.all?(Map.values(indicators), fn v -> v in ["Y", "A", "I"] end)
+  status = if all_approved and indicators != %{}, do: "Approved", else: "Pending Review"
+
+  # Build CSV exactly like browser
+  csv_content = """
+CLAIM SUMMARY
+=============
+Patient: #{subscriber_data["firstName"]} #{subscriber_data["lastName"]} (DOB: #{format_date_plain(subscriber_data["dob"])})
+Payer: #{payer_data["name"]}
+Claim #: #{claim_data["clearinghouseClaimNumber"] || claim_data["id"]}
+Service Dates: #{if first_date && last_date do
+  if first_date == last_date do
+    format_date_plain(first_date)
+  else
+    "#{format_date_plain(first_date)} - #{format_date_plain(last_date)}"
+  end
+else
+  ""
+end}
+Total Charge: $#{format_number(claim_data["totalCharge"])}
+Status: #{status}
+
+
+#{build_all_sections_csv(claim.raw_json)}
+
+Generated: #{DateTime.utc_now() |> DateTime.to_string()}
+"""
+
+  conn
+  |> put_resp_content_type("text/csv")
+  |> put_resp_header("content-disposition", ~s(attachment; filename="claim_#{id}.csv"))
+  |> send_resp(200, csv_content)
+end
+
+# Build all sections exactly like browser
+defp build_all_sections_csv(sections) do
+  sections
+  |> Enum.map(fn section ->
+    section_name = (section["section"] || "") |> String.replace("_", " ") |> String.upcase()
+    data = section["data"] || %{}
+
+    section_content = """
+#{section_name}
+#{String.duplicate("-", String.length(section_name))}
+#{render_section_csv(data)}
+"""
+    section_content
+  end)
+  |> Enum.join("\n")
+end
+
+defp render_section_csv(data) when is_map(data) and data != %{} do
+  # Get keys in order (sorted alphabetically to match browser display)
+  data
+  |> Map.to_list()
+  |> Enum.reject(fn {k, _} -> k in ["indicators"] end)
+  |> Enum.sort_by(fn {k, _} -> k end)
+  |> Enum.map(fn {k, v} ->
+    label = format_label_nice(k)
+    value = format_value_plain(v)
+    "#{label}: #{value}"
+  end)
+  |> Enum.join("\n")
+end
+
+defp render_section_csv(data) when is_list(data) and data != [] do
+  # Render each row as separate lines (not table)
+  data
+  |> Enum.with_index(1)
+  |> Enum.flat_map(fn {row, idx} ->
+    ["Line #{idx}:"] ++
+    (row
+    |> Enum.reject(fn {k, _} -> k == "lineNumber" end)
+    |> Enum.map(fn {k, v} ->
+      label = format_label_nice(k)
+      value = case v do
+        nil -> ""
+        vv when is_binary(vv) and k == "serviceDate" -> format_date_plain(vv)
+        vv when is_number(vv) -> to_string(vv)
+        vv -> to_string(vv)
+      end
+      "  #{label}: #{value}"
+    end)) ++ [""]
+  end)
+  |> Enum.join("\n")
+end
+
+
+
+defp render_section_csv(_), do: ""
+
+# Format helpers
+defp format_label_nice(key) when is_binary(key) do
+  key
+  |> String.replace("_", " ")
+  |> String.split()
+  |> Enum.map(&String.capitalize/1)
+  |> Enum.join(" ")
+end
+defp format_label_nice(key), do: to_string(key)
+
+# Plain formatting (no quotes) for map fields
+defp format_value_plain(value) when is_map(value) do
+  value
+  |> Enum.map(fn {k, v} -> "  #{k}: #{v}" end)
+  |> Enum.join("\n")
+end
+defp format_value_plain(value) when is_binary(value) do
+  case Date.from_iso8601(value) do
+    {:ok, date} -> format_date_plain(date)
+    _ -> value
+  end
+end
+defp format_value_plain(value), do: to_string(value)
+
+# Date without commas for plain fields
+defp format_date_plain(nil), do: ""
+defp format_date_plain(date) when is_binary(date) do
+  case Date.from_iso8601(date) do
+    {:ok, d} -> format_date_plain(d)
+    _ -> date
+  end
+end
+defp format_date_plain(%Date{} = date) do
+  # No comma - use space
+  Calendar.strftime(date, "%B %d %Y")
+end
+
+# Date with comma for quoted fields (service lines)
+defp format_date_quoted(nil), do: ""
+defp format_date_quoted(date) when is_binary(date) do
+  case Date.from_iso8601(date) do
+    {:ok, d} -> Calendar.strftime(d, "%B %d, %Y")
+    _ -> date
+  end
+end
+
+defp format_number(nil), do: "0.00"
+defp format_number(num) when is_number(num) do
+  :erlang.float_to_binary(num * 1.0, decimals: 2)
+end
+defp format_number(num), do: to_string(num)
 
   # ===== Query helpers =====
 

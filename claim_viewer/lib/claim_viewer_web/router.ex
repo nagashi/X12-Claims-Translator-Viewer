@@ -21,6 +21,7 @@ scope "/", ClaimViewerWeb do
   get "/search", PageController, :home  # ← ΝΕΟ - το search πάει εδώ
   get "/claims/:id", PageController, :show
   get "/claims/:id/export", PageController, :export_pdf
+  get "/claims/:id/export/csv", PageController, :export_csv
   get "/claim", PageController, :claim
   post "/upload", PageController, :upload
 end
