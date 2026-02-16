@@ -45,55 +45,103 @@
     </script>
 
 <!-- SEARCH -->
-<form method="get" action="/search">
+<form method="get" action="/search" id="search-form">
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-    <input name="patient_first" value={@patient_first} placeholder="Patient first name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
-    <input name="patient_last" value={@patient_last} placeholder="Patient last name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
-    <input name="payer" value={@payer} placeholder="Payer name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
-    <input name="billing_provider" value={@billing_provider} placeholder="Billing provider" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
     
-    <div>
-      <input 
-        name="rendering_provider" 
-        value={@rendering_provider} 
-        placeholder="Rendering provider NPI (10 digits)" 
-        pattern="[0-9]{10}" 
-        maxlength="10"
-        title="NPI must be exactly 10 digits"
-        style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;width:100%;" 
-      />
+    <!-- Patient First Name -->
+    <div style="position:relative;">
+      <input id="patient_first" name="patient_first" value={@patient_first} placeholder="Patient first name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;" />
+      <%= if @patient_first != "" do %>
+        <button type="button" onclick="document.getElementById('patient_first').value=''; document.getElementById('patient_first').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
+      <% end %>
     </div>
     
-    <input name="claim_number" value={@claim_number} placeholder="Claim #" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;" />
-    
+    <!-- Patient Last Name -->
     <div style="position:relative;">
-      <input 
-        type="date" 
-        name="service_from" 
-        value={@service_from}
-        style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px;border-radius:8px;width:100%;cursor:pointer;" 
-      />
+      <input id="patient_last" name="patient_last" value={@patient_last} placeholder="Patient last name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;" />
+      <%= if @patient_last != "" do %>
+        <button type="button" onclick="document.getElementById('patient_last').value=''; document.getElementById('patient_last').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
+      <% end %>
+    </div>
+    
+    <!-- Payer -->
+    <div style="position:relative;">
+      <input id="payer" name="payer" value={@payer} placeholder="Payer name" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;" />
+      <%= if @payer != "" do %>
+        <button type="button" onclick="document.getElementById('payer').value=''; document.getElementById('payer').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
+      <% end %>
+    </div>
+    
+    <!-- Billing Provider -->
+    <div style="position:relative;">
+      <input id="billing_provider" name="billing_provider" value={@billing_provider} placeholder="Billing provider" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;" />
+      <%= if @billing_provider != "" do %>
+        <button type="button" onclick="document.getElementById('billing_provider').value=''; document.getElementById('billing_provider').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
+      <% end %>
+    </div>
+    
+    <!-- Rendering Provider NPI -->
+    <div style="position:relative;">
+      <input id="rendering_provider" name="rendering_provider" value={@rendering_provider} placeholder="Rendering provider NPI (10 digits)" pattern="[0-9]{10}" maxlength="10" title="NPI must be exactly 10 digits" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;" />
+      <%= if @rendering_provider != "" do %>
+        <button type="button" onclick="document.getElementById('rendering_provider').value=''; document.getElementById('rendering_provider').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
+      <% end %>
+    </div>
+    
+    <!-- Claim Number -->
+    <div style="position:relative;">
+      <input id="claim_number" name="claim_number" value={@claim_number} placeholder="Claim #" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;" />
+      <%= if @claim_number != "" do %>
+        <button type="button" onclick="document.getElementById('claim_number').value=''; document.getElementById('claim_number').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
+      <% end %>
+    </div>
+    
+    <!-- Service From -->
+    <div style="position:relative;">
+      <input id="service_from" type="date" name="service_from" value={@service_from} style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;cursor:pointer;" />
+      <%= if @service_from != "" do %>
+        <button type="button" onclick="document.getElementById('service_from').value=''; document.getElementById('service_from').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
+      <% end %>
     </div>
 
+    <!-- Service To -->
     <div style="position:relative;">
-      <input 
-        type="date" 
-        name="service_to" 
-        value={@service_to}
-        style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px;border-radius:8px;width:100%;cursor:pointer;" 
-      />
+      <input id="service_to" type="date" name="service_to" value={@service_to} style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;cursor:pointer;" />
+      <%= if @service_to != "" do %>
+        <button type="button" onclick="document.getElementById('service_to').value=''; document.getElementById('service_to').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
+      <% end %>
     </div>
   </div>
 
-  <div style="margin-top:18px; display:flex; gap:12px;">
-    <button type="submit" style="background:#22c55e;color:#020617;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
+  <div style="margin-top:18px; display:flex; gap:12px; align-items:center;">
+    <button type="submit" id="search-btn" style="background:#22c55e;color:#020617;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
       Search
     </button>
     <a href="/search" style="background:#334155;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">
-      Clear
+      Clear All
     </a>
+    
+    <!-- LOADING SPINNER -->
+    <div id="loading-spinner" style="display:none; margin-left:12px;">
+      <div style="border:3px solid #334155;border-top:3px solid #38bdf8;border-radius:50%;width:24px;height:24px;animation:spin 0.8s linear infinite;"></div>
+    </div>
   </div>
 </form>
+
+<script>
+  // Show spinner on search submit
+  document.getElementById('search-form').addEventListener('submit', function() {
+    document.getElementById('search-btn').disabled = true;
+    document.getElementById('loading-spinner').style.display = 'block';
+  });
+</script>
+
+<style>
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
 
     <!-- MESSAGES -->
     <%= if !@show_results and @json == nil do %>
@@ -113,7 +161,7 @@
         </p>
       </div>
 
-      <table class="fade-in" style="width:100%; margin-top:10px; border-collapse:collapse;">
+<table class="fade-in" style="width:100%; margin-top:10px; border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:2px solid #38bdf8;">
             <th align="left">Patient</th>
@@ -123,11 +171,20 @@
         </thead>
         <tbody>
           <%= for claim <- @claims do %>
+            <%
+              # Check if claim is new (< 24 hours)
+              now = NaiveDateTime.utc_now()
+              twenty_four_hours_ago = NaiveDateTime.add(now, -24 * 60 * 60, :second)
+              is_new = NaiveDateTime.compare(claim.inserted_at, twenty_four_hours_ago) == :gt
+            %>
             <tr style="border-bottom:1px solid #1e293b;">
               <td style="padding:8px;">
                 <a href={"/claims/#{claim.id}"} style="color:#22d3ee; text-decoration:underline;">
                   <%= claim.patient_first_name %> <%= claim.patient_last_name %>
                 </a>
+                <%= if is_new do %>
+                  <span style="background:#22c55e; color:white; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin-left:8px;">NEW</span>
+                <% end %>
               </td>
               <td><%= claim.payer_name %></td>
               <td><%= claim.clearinghouse_claim_number %></td>
@@ -182,6 +239,12 @@
 
 <!-- FULL CLAIM VIEW -->
     <%= if @json do %>
+    <!-- BACK TO SEARCH BUTTON -->
+      <div class="fade-in" style="margin-top:30px; margin-bottom:12px;">
+        <a href="/search" style="background:#334155; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; display:inline-block;">
+          ← Back to Search
+        </a>
+      </div>
       
       <%
         # Detect claim type from version
@@ -197,7 +260,7 @@
       %>
       
       <!-- CLAIM TYPE BADGE -->
-      <div class="fade-in" style="margin-top:30px; margin-bottom:12px;">
+      <div class="fade-in" style="margin-bottom:12px;">
         <span style={"background:#{badge_color}; color:white; padding:8px 20px; border-radius:8px; font-weight:bold; font-size:15px; box-shadow:0 3px 10px rgba(0,0,0,0.4); display:inline-block;"}>
           <%= claim_type %> - <%= claim_label %>
         </span>
