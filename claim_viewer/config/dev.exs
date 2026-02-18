@@ -2,13 +2,15 @@ import Config
 
 # Configure your database
 config :claim_viewer, ClaimViewer.Repo,
-  username: "postgres",
-  password: "oxi123.",
-  hostname: "localhost",
-  database: "claim_viewer_dev",
+  username: System.get_env("PGUSER") || "postgres",
+  password: System.get_env("PGPASSWORD") || "postgres",
+  hostname: System.get_env("PGHOST") || "localhost",
+  port: String.to_integer(System.get_env("PGPORT") || "5432"),
+  database: System.get_env("PGDATABASE") || "claim_viewer_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
+
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -23,7 +25,7 @@ config :claim_viewer, ClaimViewerWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "h7tvCT9XTEbFfGw/lg4uaMWZr8xmzweL5m4Ju6SMi7JY6zGmq2fAttYdnb+Be7Xa",
+  secret_key_base: System.get_env("SECRET_KEY_BASE") || "dev-only-fallback",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:claim_viewer, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:claim_viewer, ~w(--watch)]}

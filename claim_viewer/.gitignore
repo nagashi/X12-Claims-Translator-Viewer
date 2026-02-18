@@ -35,3 +35,9 @@ claim_viewer-*.tar
 npm-debug.log
 /assets/node_modules/
 
+
+run_dev.bat
+run_dev.sh
+config/dev.exs.BACKUP
+
+
