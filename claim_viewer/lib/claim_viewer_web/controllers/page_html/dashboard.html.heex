@@ -97,7 +97,7 @@
     <!-- UPLOAD FORM (HIDDEN) -->
     <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form" style="display:none;">
       <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
-      <input type="file" name="file" accept=".json" id="file-input" />
+      <input type="file" name="file" accept=".json,.txt,.edi,.837" id="file-input" />
     </form>
 
     <script>
