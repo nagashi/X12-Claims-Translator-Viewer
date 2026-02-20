@@ -20,6 +20,20 @@ if System.get_env("PHX_SERVER") do
   config :claim_viewer, ClaimViewerWeb.Endpoint, server: true
 end
 
+# SECRET_KEY_BASE fallback for dev/test environments
+# This must come BEFORE the prod block to avoid conflicts
+if config_env() in [:dev, :test] do
+  case System.get_env("SECRET_KEY_BASE") do
+    secret when is_binary(secret) and byte_size(secret) >= 64 ->
+      config :claim_viewer, ClaimViewerWeb.Endpoint,
+        secret_key_base: secret
+
+    _ ->
+      config :claim_viewer, ClaimViewerWeb.Endpoint,
+        secret_key_base: "R+AZvFVPsG8Y4wLS4MMvlyGIcKFXdH5RfgB/flF28MqrO9LOg1aV+wuo0twxUf90SO1Hx1OT/b10zkGWHlaoWjejtm4qtCYqZ4JbP/6AeFiwvpEfTiLsQBtOMWFd2CUu"
+  end
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -123,16 +137,4 @@ end
 if System.find_executable("wkhtmltopdf") do
   config :pdf_generator,
     wkhtml_path: System.find_executable("wkhtmltopdf")
-end
-# SECRET_KEY_BASE fallback for dev/test environments
-if config_env() in [:dev, :test] do
-  case System.get_env("SECRET_KEY_BASE") do
-    secret when is_binary(secret) and byte_size(secret) >= 64 ->
-      config :claim_viewer, ClaimViewerWeb.Endpoint,
-        secret_key_base: secret
-
-    _ ->
-      config :claim_viewer, ClaimViewerWeb.Endpoint,
-        secret_key_base: "R+AZvFVPsG8Y4wLS4MMvlyGIcKFXdH5RfgB/flF28MqrO9LOg1aV+wuo0twxUf90SO1Hx1OT/b10zkGWHlaoWjejtm4qtCYqZ4JbP/6AeFiwvpEfTiLsQBtOMWFd2CUu"
-  end
 end
