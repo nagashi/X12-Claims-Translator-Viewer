@@ -5,16 +5,10 @@ defmodule ClaimViewer.PDF do
   """
 
   @doc """
-  Check if PDF generation is available by attempting generation.
+  Check if wkhtmltopdf executable exists on the system.
   """
   def available? do
-    # Try to check if PdfGenerator can work
-    try do
-      # Just check if the module is loaded
-      Code.ensure_loaded?(PdfGenerator)
-    rescue
-      _ -> false
-    end
+    System.find_executable("wkhtmltopdf") != nil
   end
 
   @doc """
@@ -22,7 +16,12 @@ defmodule ClaimViewer.PDF do
   Returns {:ok, binary} if successful, {:error, reason} otherwise.
   """
   def generate(html_content) do
-    try do
+    if not available?() do
+      {:error, :pdf_unavailable}
+    else
+      # Only start pdf_generator if wkhtmltopdf exists
+      Application.ensure_all_started(:pdf_generator)
+
       case PdfGenerator.generate(html_content, page_size: "A4") do
         {:ok, pdf_path} ->
           pdf_binary = File.read!(pdf_path)
@@ -32,8 +31,8 @@ defmodule ClaimViewer.PDF do
         {:error, reason} ->
           {:error, reason}
       end
-    rescue
-      error -> {:error, :pdf_unavailable}
     end
+  rescue
+    _ -> {:error, :pdf_unavailable}
   end
 end

@@ -117,3 +117,10 @@ if config_env() == :prod do
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 end
+
+# PDF Generator - only configure if wkhtmltopdf is available
+# This runs at runtime for all environments
+if System.find_executable("wkhtmltopdf") do
+  config :pdf_generator,
+    wkhtml_path: System.find_executable("wkhtmltopdf")
+end
