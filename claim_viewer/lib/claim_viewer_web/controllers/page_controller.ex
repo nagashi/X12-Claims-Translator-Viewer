@@ -236,51 +236,52 @@ end
 
   # ===== EXPORT PDF =====
 
-  def export_pdf(conn, %{"id" => id}) do
-    claim = Repo.get!(Claim, id)
+def export_pdf(conn, %{"id" => id}) do
+  claim = Repo.get!(Claim, id)
 
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
-        h1 { color: #38bdf8; border-bottom: 3px solid #38bdf8; padding-bottom: 10px; }
-        h2 { color: #38bdf8; font-size: 18px; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
-        th { background: #f0f0f0; font-weight: bold; }
-        .field { margin: 8px 0; }
-        .field strong { color: #555; }
-        .summary { background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-      </style>
-    </head>
-    <body>
-      <h1>CLAIM REPORT</h1>
-      #{render_claim_summary(claim.raw_json)}
-      #{render_claim_sections(claim.raw_json)}
-    </body>
-    </html>
-    """
+  html_content = """
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
+      h1 { color: #38bdf8; border-bottom: 3px solid #38bdf8; padding-bottom: 10px; }
+      h2 { color: #38bdf8; font-size: 18px; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+      th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
+      th { background: #f0f0f0; font-weight: bold; }
+      .field { margin: 8px 0; }
+      .field strong { color: #555; }
+      .summary { background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+    </style>
+  </head>
+  <body>
+    <h1>CLAIM REPORT</h1>
+    #{render_claim_summary(claim.raw_json)}
+    #{render_claim_sections(claim.raw_json)}
+  </body>
+  </html>
+  """
 
-    case PdfGenerator.generate(html_content, page_size: "A4") do
-      {:ok, pdf_path} ->
-        pdf_binary = File.read!(pdf_path)
-        File.rm(pdf_path)
+  case ClaimViewer.PDF.generate(html_content) do
+    {:ok, pdf_binary} ->
+      conn
+      |> put_resp_content_type("application/pdf")
+      |> put_resp_header("content-disposition", ~s(attachment; filename="claim_#{id}.pdf"))
+      |> send_resp(200, pdf_binary)
 
-        conn
-        |> put_resp_content_type("application/pdf")
-        |> put_resp_header("content-disposition", ~s(attachment; filename="claim_#{id}.pdf"))
-        |> send_resp(200, pdf_binary)
+    {:error, :pdf_unavailable} ->
+      conn
+      |> put_flash(:error, "PDF export is not available. wkhtmltopdf may not be installed or configured correctly.")
+      |> redirect(to: "/claims/#{id}")
 
-      {:error, reason} ->
-        conn
-        |> put_flash(:error, "Failed to generate PDF: #{inspect(reason)}")
-        |> redirect(to: "/claims/#{id}")
-    end
+    {:error, reason} ->
+      conn
+      |> put_flash(:error, "Failed to generate PDF: #{inspect(reason)}")
+      |> redirect(to: "/claims/#{id}")
   end
-
+end
   # ===== EXPORT CSV =====
 
   def export_csv(conn, %{"id" => id}) do
