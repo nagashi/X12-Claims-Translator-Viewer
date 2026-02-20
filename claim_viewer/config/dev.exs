@@ -25,7 +25,7 @@ config :claim_viewer, ClaimViewerWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: System.get_env("SECRET_KEY_BASE") || "WrX4oIEAV29ZanLhP7cau8UZfnbrTpLOJxvtWbxszCLgzF8UOxD4fGUoBsFNTAt",
+  secret_key_base: System.get_env("SECRET_KEY_BASE") || "R+AZvFVPsG8Y4wLS4MMvlyGIcKFXdH5RfgB/flF28MqrO9LOg1aV+wuo0twxUf90SO1Hx1OT/b10zkGWHlaoWjejtm4qtCYqZ4JbP/6AeFiwvpEfTiLsQBtOMWFd2CUu",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:claim_viewer, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:claim_viewer, ~w(--watch)]}
