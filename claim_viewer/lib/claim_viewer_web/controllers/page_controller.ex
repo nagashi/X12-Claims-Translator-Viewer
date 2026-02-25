@@ -185,6 +185,13 @@ defp handle_x12_upload(conn, x12_path, filename) do
     {:ok, json_data} ->
       IO.puts("✅ Translation successful!")
       IO.puts("📊 JSON data type: #{inspect(is_list(json_data))}")
+
+# Fix: Flatten nested arrays from parser
+json_data = case json_data do
+  [first | _] when is_list(first) -> first
+  _ -> json_data
+end
+
       process_and_save_claim(conn, json_data, filename)
 
     {:error, reason} ->

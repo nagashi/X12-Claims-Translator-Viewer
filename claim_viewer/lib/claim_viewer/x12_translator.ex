@@ -10,6 +10,12 @@ defmodule ClaimViewer.X12Translator do
     temp_output = System.tmp_dir!()
                   |> Path.join("x12_output_#{:os.system_time(:millisecond)}.json")
 
+        # Use python3 for Mac compatibility (fallback to python)
+    python_cmd =
+      System.find_executable("python3") ||
+      System.find_executable("python") ||
+      raise("Python not found. Please install Python 3.")
+
     # Call Python script
     case System.cmd("python", [@python_script_path, x12_file_path, temp_output], stderr_to_stdout: true) do
       {_output, 0} ->
