@@ -32,6 +32,7 @@ This application is part of the **X12 837P Translator and Claims Viewer Program*
 - PostgreSQL 17+
 - Ecto
 - Jason
+- Python 3 with pyx12 library
 
 ## Installation
 
