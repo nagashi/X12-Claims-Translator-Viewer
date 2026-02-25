@@ -41,6 +41,9 @@ This application is part of the **X12 837P Translator and Claims Viewer Program*
 git clone <your-repository-url>
 cd claim_viewer
 
+# Install Python dependencies (required for X12 file processing)
+pip3 install pyx12
+
 # Install dependencies
 mix deps.get
 
