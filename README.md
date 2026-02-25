@@ -42,7 +42,11 @@ git clone <your-repository-url>
 cd claim_viewer
 
 # Install Python dependencies (required for X12 file processing)
-pip3 install pyx12
+python3 -m pip install pyx12
+
+# macOS note:
+# If python3/pip is missing, install Python 3 (e.g., `brew install python` or from python.org),
+# then run the command above again.
 
 # Install dependencies
 mix deps.get
