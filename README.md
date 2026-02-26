@@ -13,7 +13,7 @@ This application is part of the **X12 837P Translator and Claims Viewer Program*
 
 ## Features
 
-✅ **JSON File Upload** - One-click file upload with automatic processing  
+✅ **X12 File Upload** - One-click X12 file upload with automatic translation to JSON  
 ✅ **Persistent Storage** - PostgreSQL database storing both raw JSON and extracted searchable fields  
 ✅ **Advanced Multi-Criteria Search** - Search by patient name, payer, providers, claim number, and service date range  
 ✅ **Structured Display** - Clean, organized view of all claim sections in form-like layout (not raw JSON)  
@@ -69,11 +69,14 @@ Visit **http://localhost:4000** in your browser.
 
 ## Uploading Claims
 
-The application accepts:
-- **JSON files** (.json) - Pre-converted claim data
-- **X12 files** (.txt, .edi, .837) - Raw X12 EDI files (automatically converted)
+The application accepts **X12 EDI claim files** in the following formats:
+- `.txt` - Standard text format
+- `.edi` - EDI format
+- `.837` - X12 837 format (Professional, Institutional, or Dental)
 
-Click "Upload Claim File" and select your file. The file is automatically processed, fields are extracted, and the claim is stored in the database.
+Click "Upload X12 Claim File" and select your file. The X12 file is automatically translated to JSON, processed, fields are extracted, and the claim is stored in the database.
+
+**Note:** JSON is used internally as an intermediate format for storage and processing. Users should upload X12 files, not JSON files.
 
 ### Searching for Claims
 
@@ -173,14 +176,14 @@ priv/
 |--------|------|-------------------|-------------|
 | GET | `/` | `PageController.home` | Main search page with form |
 | GET | `/claims/:id` | `PageController.show` | Display full claim details by ID |
-| POST | `/upload` | `PageController.upload` | Process and store uploaded JSON file |
+POST	/upload	PageController.upload	Process and store uploaded X12 file
 
 ## Data Flow
 
 **Upload Flow:**
-1. User uploads JSON file via form
+1. User uploads X12 file via form
 2. `PageController.upload/2` receives file
-3. JSON is decoded using Jason library
+3. X12 file is translated to JSON using Python parser (pyx12)
 4. `Claims.extract_search_fields/1` extracts searchable fields from JSON sections
 5. `Claims.extract_date_of_service/1` extracts first service line date
 6. New `Claim` record created with both raw JSON and extracted fields
@@ -261,7 +264,7 @@ When viewing a full claim, the following sections are displayed:
 
 ### Automatic Field Extraction
 
-When a JSON file is uploaded, the system automatically extracts key fields for searching. This is done by navigating the JSON structure using section names and field paths.
+When an X12 file is uploaded, it is first translated to JSON, then the system automatically extracts key fields for searching. This is done by navigating the JSON structure using section names and field paths.
 
 ### Case-Insensitive Search
 
