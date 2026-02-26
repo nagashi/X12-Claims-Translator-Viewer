@@ -67,11 +67,13 @@ Visit **http://localhost:4000** in your browser.
 
 ## Usage
 
-### Uploading Claims
+## Uploading Claims
 
-1. Click the **Upload JSON** button on the home page
-2. Select a JSON file containing X12 837P claim data
-3. The file is automatically processed, fields are extracted, and the claim is stored in the database
+The application accepts:
+- **JSON files** (.json) - Pre-converted claim data
+- **X12 files** (.txt, .edi, .837) - Raw X12 EDI files (automatically converted)
+
+Click "Upload Claim File" and select your file. The file is automatically processed, fields are extracted, and the claim is stored in the database.
 
 ### Searching for Claims
 
