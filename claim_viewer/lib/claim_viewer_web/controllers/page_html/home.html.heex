@@ -42,34 +42,35 @@
 <% end %>
 
       <!-- UPLOAD -->
-      <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
-        <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
-        <input type="file" name="file" accept=".json,.txt,.edi,.837" id="file-input" hidden />
+<!-- UPLOAD -->
+<form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
+  <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+  <input type="file" name="file" accept=".txt,.edi,.837" id="file-input" hidden />
 
-        <button type="button"
-          onclick="document.getElementById('file-input').click()"
-          style="
-            background:#06b6d4;
-            color:#020617;
-            padding:8px 16px;
-            border-radius:8px;
-            font-weight:bold;
-            border:none;
-            cursor:pointer;
-            margin-top:12px;
-          ">
-          Upload JSON
-        </button>
-      </form>
-    </div>
+  <button type="button"
+    onclick="document.getElementById('file-input').click()"
+    style="
+      background:#06b6d4;
+      color:#020617;
+      padding:8px 16px;
+      border-radius:8px;
+      font-weight:bold;
+      border:none;
+      cursor:pointer;
+      margin-top:12px;
+    ">
+    Upload X12 Claim File
+  </button>
+</form>
+</div>
 
-    <script>
-      document.getElementById("file-input")?.addEventListener("change", e => {
-        if (e.target.files.length > 0) {
-          document.getElementById("upload-form").submit();
-        }
-      });
-    </script>
+<script>
+  document.getElementById("file-input")?.addEventListener("change", e => {
+    if (e.target.files.length > 0) {
+      document.getElementById("upload-form").submit();
+    }
+  });
+</script>
 
 <!-- SEARCH -->
 <form method="get" action="/search" id="search-form">
@@ -81,6 +82,7 @@
       <%= if @patient_first != "" do %>
         <button type="button" onclick="document.getElementById('patient_first').value=''; document.getElementById('patient_first').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
       <% end %>
+      <small style="color:#64748b; font-size:11px; margin-top:2px; display:block;">e.g., John</small>
     </div>
     
     <!-- Patient Last Name -->
@@ -89,6 +91,7 @@
       <%= if @patient_last != "" do %>
         <button type="button" onclick="document.getElementById('patient_last').value=''; document.getElementById('patient_last').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
       <% end %>
+      <small style="color:#64748b; font-size:11px; margin-top:2px; display:block;">e.g., Smith</small>
     </div>
     
     <!-- Payer -->
@@ -97,6 +100,7 @@
       <%= if @payer != "" do %>
         <button type="button" onclick="document.getElementById('payer').value=''; document.getElementById('payer').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
       <% end %>
+      <small style="color:#64748b; font-size:11px; margin-top:2px; display:block;">e.g., Blue Cross</small>
     </div>
     
     <!-- Billing Provider -->
@@ -105,6 +109,7 @@
       <%= if @billing_provider != "" do %>
         <button type="button" onclick="document.getElementById('billing_provider').value=''; document.getElementById('billing_provider').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
       <% end %>
+      <small style="color:#64748b; font-size:11px; margin-top:2px; display:block;">e.g., General Hospital</small>
     </div>
     
     <!-- Rendering Provider NPI -->
@@ -113,6 +118,7 @@
       <%= if @rendering_provider != "" do %>
         <button type="button" onclick="document.getElementById('rendering_provider').value=''; document.getElementById('rendering_provider').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
       <% end %>
+      <small style="color:#64748b; font-size:11px; margin-top:2px; display:block;">10-digit number</small>
     </div>
     
     <!-- Claim Number -->
@@ -121,6 +127,7 @@
       <%= if @claim_number != "" do %>
         <button type="button" onclick="document.getElementById('claim_number').value=''; document.getElementById('claim_number').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
       <% end %>
+      <small style="color:#64748b; font-size:11px; margin-top:2px; display:block;">e.g., CLM-2024-001</small>
     </div>
     
     <!-- Service From -->
@@ -131,22 +138,32 @@
       <% end %>
     </div>
 
-    <!-- Service To -->
-    <div style="position:relative;">
-      <input id="service_to" type="date" name="service_to" value={@service_to} style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;cursor:pointer;" />
-      <%= if @service_to != "" do %>
-        <button type="button" onclick="document.getElementById('service_to').value=''; document.getElementById('service_to').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
-      <% end %>
-    </div>
-  </div>
+<!-- Service To -->
+<div style="position:relative;">
+  <input id="service_to" type="date" name="service_to" value={@service_to} style="background:#020617;border:2px solid #38bdf8;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;cursor:pointer;" />
+  <%= if @service_to != "" do %>
+    <button type="button" onclick="document.getElementById('service_to').value=''; document.getElementById('service_to').focus();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;">×</button>
+  <% end %>
+</div>
 
-  <div style="margin-top:18px; display:flex; gap:12px; align-items:center;">
-    <button type="submit" id="search-btn" style="background:#22c55e;color:#020617;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
-      Search
-    </button>
-    <a href="/search" style="background:#334155;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">
-      Clear All
-    </a>
+<!-- Status Filter -->
+<div style="position:relative;">
+  <select id="status" name="status" style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px;border-radius:8px;width:100%;cursor:pointer;">
+    <option value="" selected={@status == ""}>All Claims</option>
+    <option value="approved" selected={@status == "approved"}>Approved Only</option>
+    <option value="pending" selected={@status == "pending"}>Pending Only</option>
+  </select>
+  <small style="color:#64748b; font-size:11px; margin-top:2px; display:block;">Filter by approval status</small>
+</div>
+</div>
+
+<div style="margin-top:18px; display:flex; gap:12px; align-items:center;">
+  <button type="submit" id="search-btn" style="background:#22c55e;color:#020617;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
+    Search
+  </button>
+  <a href="/search" style="background:#334155;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">
+    Clear All
+  </a>
     
     <!-- LOADING SPINNER -->
     <div id="loading-spinner" style="display:none; margin-left:12px;">
@@ -170,14 +187,14 @@
   }
 </style>
 
-    <!-- MESSAGES -->
-    <%= if !@show_results and @json == nil do %>
-      <p style="margin-top:20px; color:#94a3b8;">Please enter search criteria.</p>
-    <% end %>
+<!-- MESSAGES -->
+<%= if !@show_results and @json == nil do %>
+  <p style="margin-top:20px; color:#94a3b8;">Enter any search criteria above (name, payer, claim #, etc.) to find claims.</p>
+<% end %>
 
-    <%= if @show_results and @claims == [] do %>
-      <p style="margin-top:20px; color:#f87171;">No results found.</p>
-    <% end %>
+<%= if @show_results and @claims == [] do %>
+  <p style="margin-top:20px; color:#f87171;">No claims found. Try different search criteria or broader terms.</p>
+<% end %>
 
     <!-- SEARCH RESULTS -->
     <%= if @claims != [] do %>

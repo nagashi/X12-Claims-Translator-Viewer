@@ -62,6 +62,7 @@ defmodule ClaimViewerWeb.PageController do
     claim_number = params |> Map.get("claim_number", "") |> String.trim()
     service_from = params |> Map.get("service_from", "") |> String.trim()
     service_to = params |> Map.get("service_to", "") |> String.trim()
+    status = params |> Map.get("status", "") |> String.trim()
 
     page = case Integer.parse(params |> Map.get("page", "1")) do
       {num, _} -> num
@@ -77,6 +78,7 @@ defmodule ClaimViewerWeb.PageController do
       valid_search?(claim_number) or
       service_from != "" or
       service_to != ""
+      status != ""
 
     per_page = 10
     offset = (page - 1) * per_page
@@ -90,6 +92,7 @@ defmodule ClaimViewerWeb.PageController do
           |> maybe_exact(:rendering_provider_npi, rendering_provider)
           |> maybe_like(:clearinghouse_claim_number, claim_number)
           |> maybe_date_range(service_from, service_to)
+          |> maybe_status(status)
           |> order_by([c], desc: c.inserted_at)
 
         total = Repo.aggregate(query, :count, :id)
@@ -117,6 +120,7 @@ defmodule ClaimViewerWeb.PageController do
       total_pages: total_pages,
       total_count: total_count,
       json: nil,
+      status: status,
       claim_id: nil
     )
   end
@@ -139,82 +143,63 @@ defmodule ClaimViewerWeb.PageController do
       total_pages: 0,
       total_count: 0,
       json: claim.raw_json,
+      status: "",
       claim_id: id
     )
   end
 
-  # ===== UPLOAD - UPDATED FOR X12 SUPPORT =====
+  # ===== UPLOAD - X12 FILES ONLY =====
 
-def upload(conn, %{"file" => %Plug.Upload{path: path, filename: filename}}) do
-  IO.puts("📤 UPLOAD RECEIVED: #{filename}")
+  def upload(conn, %{"file" => %Plug.Upload{path: path, filename: filename}}) do
+    IO.puts("📤 UPLOAD RECEIVED: #{filename}")
 
-  # Detect file type
-  file_extension = Path.extname(filename) |> String.downcase()
-  IO.puts("📂 File extension: #{file_extension}")
+    # Detect file type
+    file_extension = Path.extname(filename) |> String.downcase()
+    IO.puts("📂 File extension: #{file_extension}")
 
-  case file_extension do
-    # X12 files
-    ext when ext in [".txt", ".edi", ".837"] ->
-      IO.puts("🔄 Detected X12 file, calling handle_x12_upload...")
-      handle_x12_upload(conn, path, filename)
+    case file_extension do
+      # X12 files only
+      ext when ext in [".txt", ".edi", ".837"] ->
+        IO.puts("🔄 Detected X12 file, calling handle_x12_upload...")
+        handle_x12_upload(conn, path, filename)
 
-    # JSON files (existing flow)
-    ".json" ->
-      IO.puts("📄 Detected JSON file")
-      handle_json_upload(conn, path)
-
-    _ ->
-      IO.puts("❌ Unsupported file type: #{file_extension}")
-      conn
-      |> put_flash(:error, "Unsupported file type. Please upload .json, .txt, .edi, or .837 files.")
-      |> redirect(to: "/")
+      _ ->
+        IO.puts("❌ Unsupported file type: #{file_extension}")
+        conn
+        |> put_flash(:error, "Unsupported file type. Please upload .txt, .edi, or .837 X12 files.")
+        |> redirect(to: "/")
+    end
   end
-end
 
   def upload(conn, _params) do
     conn
-    |> put_flash(:error, "Please select a file")
+    |> put_flash(:error, "No file selected. Please choose an X12 claim file to upload.")
     |> redirect(to: "/")
   end
 
   # Handle X12 files
-defp handle_x12_upload(conn, x12_path, filename) do
-  IO.puts("🔍 Starting X12 translation for: #{filename}")
+  defp handle_x12_upload(conn, x12_path, filename) do
+    IO.puts("🔍 Starting X12 translation for: #{filename}")
 
-  case ClaimViewer.X12Translator.translate_x12_to_json(x12_path) do
-    {:ok, json_data} ->
-      IO.puts("✅ Translation successful!")
-      IO.puts("📊 JSON data type: #{inspect(is_list(json_data))}")
+    case ClaimViewer.X12Translator.translate_x12_to_json(x12_path) do
+      {:ok, json_data} ->
+        IO.puts("✅ Translation successful!")
+        IO.puts("📊 JSON data type: #{inspect(is_list(json_data))}")
 
-# Fix: Flatten nested arrays from parser
-json_data = case json_data do
-  [first | _] when is_list(first) -> first
-  _ -> json_data
-end
+        # Fix: Flatten nested arrays from parser
+        json_data = case json_data do
+          [first | _] when is_list(first) -> first
+          _ -> json_data
+        end
 
-      process_and_save_claim(conn, json_data, filename)
+        process_and_save_claim(conn, json_data, filename)
 
-    {:error, reason} ->
-      IO.puts("❌ Translation failed: #{reason}")
-      conn
-      |> put_flash(:error, "X12 translation failed: #{reason}")
-      |> redirect(to: "/")
-  end
-end
-
-  # Handle JSON files (existing logic)
-  defp handle_json_upload(conn, json_path) do
-    json_data =
-      json_path
-      |> File.read!()
-      |> Jason.decode!()
-
-    json_data = case json_data do
-      [first | _] when is_list(first) -> first
-      _ -> json_data
+      {:error, reason} ->
+        IO.puts("❌ Translation failed: #{reason}")
+        conn
+        |> put_flash(:error, "Unable to process X12 file. Please ensure it's a valid 837 claim file. Error: #{reason}")
+        |> redirect(to: "/")
     end
-
-    process_and_save_claim(conn, json_data, "uploaded.json")
   end
 
   # Save claim to database
@@ -243,52 +228,53 @@ end
 
   # ===== EXPORT PDF =====
 
-def export_pdf(conn, %{"id" => id}) do
-  claim = Repo.get!(Claim, id)
+  def export_pdf(conn, %{"id" => id}) do
+    claim = Repo.get!(Claim, id)
 
-  html_content = """
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <meta charset="UTF-8">
-    <style>
-      body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
-      h1 { color: #38bdf8; border-bottom: 3px solid #38bdf8; padding-bottom: 10px; }
-      h2 { color: #38bdf8; font-size: 18px; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-      th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
-      th { background: #f0f0f0; font-weight: bold; }
-      .field { margin: 8px 0; }
-      .field strong { color: #555; }
-      .summary { background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-    </style>
-  </head>
-  <body>
-    <h1>CLAIM REPORT</h1>
-    #{render_claim_summary(claim.raw_json)}
-    #{render_claim_sections(claim.raw_json)}
-  </body>
-  </html>
-  """
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
+        h1 { color: #38bdf8; border-bottom: 3px solid #38bdf8; padding-bottom: 10px; }
+        h2 { color: #38bdf8; font-size: 18px; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
+        th { background: #f0f0f0; font-weight: bold; }
+        .field { margin: 8px 0; }
+        .field strong { color: #555; }
+        .summary { background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+      </style>
+    </head>
+    <body>
+      <h1>CLAIM REPORT</h1>
+      #{render_claim_summary(claim.raw_json)}
+      #{render_claim_sections(claim.raw_json)}
+    </body>
+    </html>
+    """
 
-  case ClaimViewer.PDF.generate(html_content) do
-    {:ok, pdf_binary} ->
-      conn
-      |> put_resp_content_type("application/pdf")
-      |> put_resp_header("content-disposition", ~s(attachment; filename="claim_#{id}.pdf"))
-      |> send_resp(200, pdf_binary)
+    case ClaimViewer.PDF.generate(html_content) do
+      {:ok, pdf_binary} ->
+        conn
+        |> put_resp_content_type("application/pdf")
+        |> put_resp_header("content-disposition", ~s(attachment; filename="claim_#{id}.pdf"))
+        |> send_resp(200, pdf_binary)
 
-    {:error, :pdf_unavailable} ->
-      conn
-      |> put_flash(:error, "PDF export is not available. wkhtmltopdf may not be installed or configured correctly.")
-      |> redirect(to: "/claims/#{id}")
+      {:error, :pdf_unavailable} ->
+        conn
+        |> put_flash(:error, "PDF export is not available. wkhtmltopdf may not be installed or configured correctly.")
+        |> redirect(to: "/claims/#{id}")
 
-    {:error, reason} ->
-      conn
-      |> put_flash(:error, "Failed to generate PDF: #{inspect(reason)}")
-      |> redirect(to: "/claims/#{id}")
+      {:error, reason} ->
+        conn
+        |> put_flash(:error, "Failed to generate PDF: #{inspect(reason)}")
+        |> redirect(to: "/claims/#{id}")
+    end
   end
-end
+
   # ===== EXPORT CSV =====
 
   def export_csv(conn, %{"id" => id}) do
@@ -594,4 +580,54 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
     |> String.capitalize()
   end
   defp format_label(key), do: to_string(key)
+
+
+# ===== STATUS FILTER =====
+
+# Status filter helper
+defp maybe_status(query, ""), do: query
+
+defp maybe_status(query, "approved") do
+  # Get claims where all indicators are Y/A/I
+  from(c in query,
+    where: fragment(
+      """
+      EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(?::jsonb) AS elem,
+             jsonb_each_text(elem->'data'->'indicators') AS ind
+        WHERE elem->>'section' = 'claim'
+          AND jsonb_typeof(elem->'data'->'indicators') = 'object'
+        GROUP BY elem
+        HAVING COUNT(*) > 0
+          AND COUNT(*) FILTER (WHERE ind.value IN ('Y', 'A', 'I')) = COUNT(*)
+      )
+      """,
+      c.raw_json
+    )
+  )
+end
+
+defp maybe_status(query, "pending") do
+  # Get claims where NOT all indicators are Y/A/I
+  from(c in query,
+    where: fragment(
+      """
+      NOT EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(?::jsonb) AS elem,
+             jsonb_each_text(elem->'data'->'indicators') AS ind
+        WHERE elem->>'section' = 'claim'
+          AND jsonb_typeof(elem->'data'->'indicators') = 'object'
+        GROUP BY elem
+        HAVING COUNT(*) > 0
+          AND COUNT(*) FILTER (WHERE ind.value IN ('Y', 'A', 'I')) = COUNT(*)
+      )
+      """,
+      c.raw_json
+    )
+  )
+end
+
+defp maybe_status(query, _), do: query
 end
