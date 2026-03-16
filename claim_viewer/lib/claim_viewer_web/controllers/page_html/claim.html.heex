@@ -1,11 +1,11 @@
 <!-- Main container for the page -->
 <!-- Adds padding, dark background, full viewport height, and white text -->
 <div style="padding: 30px; background: #0f172a; min-height: 100vh; color: white;">
-
-  <!-- Loop through each section of the JSON claim -->
+  
+<!-- Loop through each section of the JSON claim -->
   <%= for item <- @json do %>
-
-    <!-- ===================== -->
+    
+<!-- ===================== -->
     <!-- SECTION TITLE -->
     <!-- ===================== -->
 
@@ -20,10 +20,10 @@
       padding-bottom: 6px;              <!-- Space between text and border -->
     ">
       <!-- Converts section name to uppercase -->
-      <%= String.upcase(item["section"]) %>
+      {String.upcase(item["section"])}
     </h2>
-
-    <!-- ===================== -->
+    
+<!-- ===================== -->
     <!-- SECTION DATA -->
     <!-- ===================== -->
 
@@ -39,8 +39,7 @@
     ">
 <%= Jason.encode!(item["data"], pretty: true) %>
     </pre>
-
-  <!-- End of loop -->
+    
+<!-- End of loop -->
   <% end %>
-
 </div>

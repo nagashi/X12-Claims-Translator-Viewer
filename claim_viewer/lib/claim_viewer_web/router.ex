@@ -14,17 +14,19 @@ defmodule ClaimViewerWeb.Router do
     plug :accepts, ["json"]
   end
 
-scope "/", ClaimViewerWeb do
-  pipe_through :browser
+  scope "/", ClaimViewerWeb do
+    pipe_through :browser
 
-  get "/", PageController, :dashboard  # ← ΑΛΛΑΞΕ από :home σε :dashboard
-  get "/search", PageController, :home  # ← ΝΕΟ - το search πάει εδώ
-  get "/claims/:id", PageController, :show
-  get "/claims/:id/export", PageController, :export_pdf
-  get "/claims/:id/export/csv", PageController, :export_csv
-  get "/claim", PageController, :claim
-  post "/upload", PageController, :upload
-end
+    # ← ΑΛΛΑΞΕ από :home σε :dashboard
+    get "/", PageController, :dashboard
+    # ← ΝΕΟ - το search πάει εδώ
+    get "/search", PageController, :home
+    get "/claims/:id", PageController, :show
+    get "/claims/:id/export", PageController, :export_pdf
+    get "/claims/:id/export/csv", PageController, :export_csv
+    get "/claim", PageController, :claim
+    post "/upload", PageController, :upload
+  end
 
   # Other scopes may use custom stacks.
   # scope "/api", ClaimViewerWeb do

@@ -24,11 +24,25 @@ defmodule ClaimViewerWeb.PageController do
     {approved_count, approved_revenue} =
       claims
       |> Enum.filter(fn claim ->
-        indicators = get_in(claim.raw_json, [Access.filter(fn s -> s["section"] == "claim" end), "data", "indicators"]) |> List.first() || %{}
+        indicators =
+          get_in(claim.raw_json, [
+            Access.filter(fn s -> s["section"] == "claim" end),
+            "data",
+            "indicators"
+          ])
+          |> List.first() || %{}
+
         Enum.all?(Map.values(indicators), fn v -> v in ["Y", "A", "I"] end) and indicators != %{}
       end)
       |> Enum.reduce({0, 0}, fn claim, {count, revenue} ->
-        charge = get_in(claim.raw_json, [Access.filter(fn s -> s["section"] == "claim" end), "data", "totalCharge"]) |> List.first() || 0
+        charge =
+          get_in(claim.raw_json, [
+            Access.filter(fn s -> s["section"] == "claim" end),
+            "data",
+            "totalCharge"
+          ])
+          |> List.first() || 0
+
         {count + 1, revenue + charge}
       end)
 
@@ -41,7 +55,9 @@ defmodule ClaimViewerWeb.PageController do
     # This month
     now = NaiveDateTime.utc_now()
     first_day = %{now | day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 0}}
-    this_month_count = Repo.aggregate(from(c in Claim, where: c.inserted_at >= ^first_day), :count, :id)
+
+    this_month_count =
+      Repo.aggregate(from(c in Claim, where: c.inserted_at >= ^first_day), :count, :id)
 
     render(conn, :dashboard,
       total_claims: total_claims,
@@ -64,28 +80,30 @@ defmodule ClaimViewerWeb.PageController do
     service_to = params |> Map.get("service_to", "") |> String.trim()
     status = params |> Map.get("status", "") |> String.trim()
 
-    page = case Integer.parse(params |> Map.get("page", "1")) do
-      {num, _} -> num
-      :error -> 1
-    end
+    page =
+      case Integer.parse(params |> Map.get("page", "1")) do
+        {num, _} -> num
+        :error -> 1
+      end
 
     has_search? =
       valid_search?(first) or
-      valid_search?(last) or
-      valid_search?(payer) or
-      valid_search?(billing_provider) or
-      valid_search?(rendering_provider) or
-      valid_search?(claim_number) or
-      service_from != "" or
-      service_to != ""
-      status != ""
+        valid_search?(last) or
+        valid_search?(payer) or
+        valid_search?(billing_provider) or
+        valid_search?(rendering_provider) or
+        valid_search?(claim_number) or
+        service_from != "" or
+        service_to != "" or
+        status != ""
 
     per_page = 10
     offset = (page - 1) * per_page
 
     {claims, total_count} =
       if has_search? do
-        query = from(c in Claim)
+        query =
+          from(c in Claim)
           |> maybe_full_name(first, last)
           |> maybe_like(:payer_name, payer)
           |> maybe_like(:billing_provider_name, billing_provider)
@@ -148,25 +166,22 @@ defmodule ClaimViewerWeb.PageController do
     )
   end
 
-  # ===== UPLOAD - X12 FILES ONLY =====
+  # ===== UPLOAD - X12 FILES (CONTENT-VALIDATED) =====
 
   def upload(conn, %{"file" => %Plug.Upload{path: path, filename: filename}}) do
-    IO.puts("📤 UPLOAD RECEIVED: #{filename}")
+    # Validate file content is X12 837 (extension-agnostic)
+    case ClaimViewer.X12Validator.validate_file_content(path) do
+      {:ok, tx_set_count} ->
+        IO.puts("✅ Valid X12 837 file: #{filename} (#{tx_set_count} transaction set(s))")
 
-    # Detect file type
-    file_extension = Path.extname(filename) |> String.downcase()
-    IO.puts("📂 File extension: #{file_extension}")
-
-    case file_extension do
-      # X12 files only
-      ext when ext in [".txt", ".edi", ".837"] ->
-        IO.puts("🔄 Detected X12 file, calling handle_x12_upload...")
         handle_x12_upload(conn, path, filename)
 
-      _ ->
-        IO.puts("❌ Unsupported file type: #{file_extension}")
+      {:error, reason} ->
         conn
-        |> put_flash(:error, "Unsupported file type. Please upload .txt, .edi, or .837 X12 files.")
+        |> put_flash(
+          :error,
+          "Invalid X12 file: #{reason}. Please upload a valid 837 claim file."
+        )
         |> redirect(to: "/")
     end
   end
@@ -177,33 +192,95 @@ defmodule ClaimViewerWeb.PageController do
     |> redirect(to: "/")
   end
 
-  # Handle X12 files
+  # Handle X12 files — supports multiple transaction sets per interchange
   defp handle_x12_upload(conn, x12_path, filename) do
-    IO.puts("🔍 Starting X12 translation for: #{filename}")
-
     case ClaimViewer.X12Translator.translate_x12_to_json(x12_path) do
       {:ok, json_data} ->
-        IO.puts("✅ Translation successful!")
-        IO.puts("📊 JSON data type: #{inspect(is_list(json_data))}")
+        # Normalize: if parser returns nested arrays (multiple claims),
+        # process each one; otherwise wrap single claim in a list
+        transaction_sets =
+          case json_data do
+            [first | _] when is_list(first) -> json_data
+            sections when is_list(sections) -> [sections]
+            _ -> []
+          end
 
-        # Fix: Flatten nested arrays from parser
-        json_data = case json_data do
-          [first | _] when is_list(first) -> first
-          _ -> json_data
-        end
+        results =
+          transaction_sets
+          |> Enum.with_index(1)
+          |> Enum.map(fn {sections, idx} ->
+            process_single_transaction_set(sections, idx)
+          end)
 
-        process_and_save_claim(conn, json_data, filename)
+        {successes, failures} = Enum.split_with(results, &match?({:ok, _}, &1))
+        success_count = length(successes)
+        total = length(results)
+
+        # Save all successful claims
+        Enum.each(successes, fn {:ok, validated_sections} ->
+          save_claim(validated_sections)
+        end)
+
+        conn = build_upload_flash(conn, filename, success_count, total, failures)
+        redirect(conn, to: "/")
 
       {:error, reason} ->
-        IO.puts("❌ Translation failed: #{reason}")
         conn
-        |> put_flash(:error, "Unable to process X12 file. Please ensure it's a valid 837 claim file. Error: #{reason}")
+        |> put_flash(
+          :error,
+          "Unable to process X12 file. Error: #{reason}"
+        )
         |> redirect(to: "/")
     end
   end
 
-  # Save claim to database
-  defp process_and_save_claim(conn, json_data, source_filename) do
+  # Process a single transaction set through struct mapping + schema validation
+  defp process_single_transaction_set(sections, index) do
+    alias ClaimViewer.X12.{Mapper, SchemaValidator}
+
+    with {:ok, claim_struct} <- Mapper.from_sections(sections),
+         validated_sections = Mapper.to_validated_sections(claim_struct),
+         {:ok, validated_sections} <- SchemaValidator.validate_837_json(validated_sections) do
+      {:ok, validated_sections}
+    else
+      {:error, :validation_failed, errors} ->
+        {:error, "Transaction set ##{index} failed schema validation: #{inspect(errors)}"}
+
+      {:error, reason} ->
+        {:error, "Transaction set ##{index}: #{reason}"}
+    end
+  end
+
+  defp build_upload_flash(conn, filename, success_count, total, failures) do
+    cond do
+      success_count == total and total == 1 ->
+        put_flash(conn, :info, "Claim uploaded successfully from #{filename}")
+
+      success_count == total ->
+        put_flash(
+          conn,
+          :info,
+          "All #{success_count} claims uploaded successfully from #{filename}"
+        )
+
+      success_count > 0 ->
+        error_msgs = Enum.map(failures, fn {:error, msg} -> msg end) |> Enum.join("; ")
+
+        conn
+        |> put_flash(
+          :info,
+          "#{success_count} of #{total} claims saved from #{filename}"
+        )
+        |> put_flash(:error, "Failed claims: #{error_msgs}")
+
+      true ->
+        error_msgs = Enum.map(failures, fn {:error, msg} -> msg end) |> Enum.join("; ")
+        put_flash(conn, :error, "All #{total} claims failed from #{filename}: #{error_msgs}")
+    end
+  end
+
+  # Save a validated claim to the database
+  defp save_claim(json_data) do
     search_fields = Claims.extract_search_fields(json_data)
 
     date_of_service =
@@ -220,10 +297,6 @@ defmodule ClaimViewerWeb.PageController do
     %Claim{}
     |> Claim.changeset(attrs)
     |> Repo.insert!()
-
-    conn
-    |> put_flash(:info, "✅ Claim uploaded successfully from #{source_filename}")
-    |> redirect(to: "/")
   end
 
   # ===== EXPORT PDF =====
@@ -265,7 +338,10 @@ defmodule ClaimViewerWeb.PageController do
 
       {:error, :pdf_unavailable} ->
         conn
-        |> put_flash(:error, "PDF export is not available. wkhtmltopdf may not be installed or configured correctly.")
+        |> put_flash(
+          :error,
+          "PDF export is not available. wkhtmltopdf may not be installed or configured correctly."
+        )
         |> redirect(to: "/claims/#{id}")
 
       {:error, reason} ->
@@ -289,16 +365,19 @@ defmodule ClaimViewerWeb.PageController do
     claim_section = Enum.find(claim.raw_json, fn s -> s["section"] == "claim" end) || %{}
     claim_data = claim_section["data"] || %{}
 
-    service_lines_section = Enum.find(claim.raw_json, fn s ->
-      String.downcase(s["section"] || "") |> String.contains?("service")
-    end) || %{}
+    service_lines_section =
+      Enum.find(claim.raw_json, fn s ->
+        String.downcase(s["section"] || "") |> String.contains?("service")
+      end) || %{}
+
     service_data = service_lines_section["data"] || []
 
-    service_dates = if is_list(service_data) and service_data != [] do
-      service_data |> Enum.map(fn line -> line["serviceDate"] end) |> Enum.reject(&is_nil/1)
-    else
-      []
-    end
+    service_dates =
+      if is_list(service_data) and service_data != [] do
+        service_data |> Enum.map(fn line -> line["serviceDate"] end) |> Enum.reject(&is_nil/1)
+      else
+        []
+      end
 
     first_date = if service_dates != [], do: Enum.min(service_dates), else: nil
     last_date = if service_dates != [], do: Enum.max(service_dates), else: nil
@@ -308,28 +387,28 @@ defmodule ClaimViewerWeb.PageController do
     status = if all_approved and indicators != %{}, do: "Approved", else: "Pending Review"
 
     csv_content = """
-CLAIM SUMMARY
-=============
-Patient: #{subscriber_data["firstName"]} #{subscriber_data["lastName"]} (DOB: #{format_date_plain(subscriber_data["dob"])})
-Payer: #{payer_data["name"]}
-Claim #: #{claim_data["clearinghouseClaimNumber"] || claim_data["id"]}
-Service Dates: #{if first_date && last_date do
-  if first_date == last_date do
-    format_date_plain(first_date)
-  else
-    "#{format_date_plain(first_date)} - #{format_date_plain(last_date)}"
-  end
-else
-  ""
-end}
-Total Charge: $#{format_number(claim_data["totalCharge"])}
-Status: #{status}
+    CLAIM SUMMARY
+    =============
+    Patient: #{subscriber_data["firstName"]} #{subscriber_data["lastName"]} (DOB: #{format_date_plain(subscriber_data["dob"])})
+    Payer: #{payer_data["name"]}
+    Claim #: #{claim_data["clearinghouseClaimNumber"] || claim_data["id"]}
+    Service Dates: #{if first_date && last_date do
+      if first_date == last_date do
+        format_date_plain(first_date)
+      else
+        "#{format_date_plain(first_date)} - #{format_date_plain(last_date)}"
+      end
+    else
+      ""
+    end}
+    Total Charge: $#{format_number(claim_data["totalCharge"])}
+    Status: #{status}
 
 
-#{build_all_sections_csv(claim.raw_json)}
+    #{build_all_sections_csv(claim.raw_json)}
 
-Generated: #{DateTime.utc_now() |> DateTime.to_string()}
-"""
+    Generated: #{DateTime.utc_now() |> DateTime.to_string()}
+    """
 
     conn
     |> put_resp_content_type("text/csv")
@@ -346,10 +425,11 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
       data = section["data"] || %{}
 
       section_content = """
-#{section_name}
-#{String.duplicate("-", String.length(section_name))}
-#{render_section_csv(data)}
-"""
+      #{section_name}
+      #{String.duplicate("-", String.length(section_name))}
+      #{render_section_csv(data)}
+      """
+
       section_content
     end)
     |> Enum.join("\n")
@@ -373,18 +453,21 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
     |> Enum.with_index(1)
     |> Enum.flat_map(fn {row, idx} ->
       ["Line #{idx}:"] ++
-      (row
-      |> Enum.reject(fn {k, _} -> k == "lineNumber" end)
-      |> Enum.map(fn {k, v} ->
-        label = format_label_nice(k)
-        value = case v do
-          nil -> ""
-          vv when is_binary(vv) and k == "serviceDate" -> format_date_plain(vv)
-          vv when is_number(vv) -> to_string(vv)
-          vv -> to_string(vv)
-        end
-        "  #{label}: #{value}"
-      end)) ++ [""]
+        (row
+         |> Enum.reject(fn {k, _} -> k == "lineNumber" end)
+         |> Enum.map(fn {k, v} ->
+           label = format_label_nice(k)
+
+           value =
+             case v do
+               nil -> ""
+               vv when is_binary(vv) and k == "serviceDate" -> format_date_plain(vv)
+               vv when is_number(vv) -> to_string(vv)
+               vv -> to_string(vv)
+             end
+
+           "  #{label}: #{value}"
+         end)) ++ [""]
     end)
     |> Enum.join("\n")
   end
@@ -398,6 +481,7 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
     |> Enum.map(&String.capitalize/1)
     |> Enum.join(" ")
   end
+
   defp format_label_nice(key), do: to_string(key)
 
   defp format_value_plain(value) when is_map(value) do
@@ -405,39 +489,47 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
     |> Enum.map(fn {k, v} -> "  #{k}: #{v}" end)
     |> Enum.join("\n")
   end
+
   defp format_value_plain(value) when is_binary(value) do
     case Date.from_iso8601(value) do
       {:ok, date} -> format_date_plain(date)
       _ -> value
     end
   end
+
   defp format_value_plain(value), do: to_string(value)
 
   defp format_date_plain(nil), do: ""
+
   defp format_date_plain(date) when is_binary(date) do
     case Date.from_iso8601(date) do
       {:ok, d} -> format_date_plain(d)
       _ -> date
     end
   end
+
   defp format_date_plain(%Date{} = date) do
     Calendar.strftime(date, "%B %d %Y")
   end
 
   defp format_number(nil), do: "0.00"
+
   defp format_number(num) when is_number(num) do
     :erlang.float_to_binary(num * 1.0, decimals: 2)
   end
+
   defp format_number(num), do: to_string(num)
 
   # ===== QUERY HELPERS =====
 
   defp maybe_like(query, _field, ""), do: query
+
   defp maybe_like(query, field, value) do
     where(query, [c], ilike(field(c, ^field), ^"%#{value}%"))
   end
 
   defp maybe_exact(query, _field, ""), do: query
+
   defp maybe_exact(query, field, value) do
     where(query, [c], field(c, ^field) == ^value)
   end
@@ -445,20 +537,18 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
   defp maybe_full_name(query, first, last) do
     cond do
       first != "" and last != "" ->
-        where(query, [c],
+        where(
+          query,
+          [c],
           ilike(c.patient_first_name, ^"%#{first}%") and
-          ilike(c.patient_last_name, ^"%#{last}%")
+            ilike(c.patient_last_name, ^"%#{last}%")
         )
 
       first != "" ->
-        where(query, [c],
-          ilike(c.patient_first_name, ^"%#{first}%")
-        )
+        where(query, [c], ilike(c.patient_first_name, ^"%#{first}%"))
 
       last != "" ->
-        where(query, [c],
-          ilike(c.patient_last_name, ^"%#{last}%")
-        )
+        where(query, [c], ilike(c.patient_last_name, ^"%#{last}%"))
 
       true ->
         query
@@ -490,10 +580,12 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
   defp maybe_date_range(query, from, to) do
     case {Date.from_iso8601(from), Date.from_iso8601(to)} do
       {{:ok, from_date}, {:ok, to_date}} ->
-        where(query, [c],
+        where(
+          query,
+          [c],
           not is_nil(c.date_of_service) and
-          c.date_of_service >= ^from_date and
-          c.date_of_service <= ^to_date
+            c.date_of_service >= ^from_date and
+            c.date_of_service <= ^to_date
         )
 
       _ ->
@@ -542,11 +634,13 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
     data
     |> Enum.reject(fn {k, _} -> k in ["indicators"] end)
     |> Enum.map(fn {k, v} ->
-      value = if is_map(v) do
-        v |> Enum.map(fn {kk, vv} -> "#{kk}: #{vv}" end) |> Enum.join(", ")
-      else
-        v
-      end
+      value =
+        if is_map(v) do
+          v |> Enum.map(fn {kk, vv} -> "#{kk}: #{vv}" end) |> Enum.join(", ")
+        else
+          v
+        end
+
       ~s(<div class="field"><strong>#{format_label(k)}:</strong> #{value}</div>)
     end)
     |> Enum.join("\n")
@@ -564,9 +658,7 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
         </tr>
       </thead>
       <tbody>
-        #{data |> Enum.map(fn row ->
-          "<tr>#{keys |> Enum.map(&"<td>#{row[&1]}</td>") |> Enum.join("")}</tr>"
-        end) |> Enum.join("\n")}
+        #{data |> Enum.map(fn row -> "<tr>#{keys |> Enum.map(&"<td>#{row[&1]}</td>") |> Enum.join("")}</tr>" end) |> Enum.join("\n")}
       </tbody>
     </table>
     """
@@ -579,55 +671,57 @@ Generated: #{DateTime.utc_now() |> DateTime.to_string()}
     |> String.replace("_", " ")
     |> String.capitalize()
   end
+
   defp format_label(key), do: to_string(key)
 
+  # ===== STATUS FILTER =====
 
-# ===== STATUS FILTER =====
+  # Status filter helper
+  defp maybe_status(query, ""), do: query
 
-# Status filter helper
-defp maybe_status(query, ""), do: query
-
-defp maybe_status(query, "approved") do
-  # Get claims where all indicators are Y/A/I
-  from(c in query,
-    where: fragment(
-      """
-      EXISTS (
-        SELECT 1
-        FROM jsonb_array_elements(?::jsonb) AS elem,
-             jsonb_each_text(elem->'data'->'indicators') AS ind
-        WHERE elem->>'section' = 'claim'
-          AND jsonb_typeof(elem->'data'->'indicators') = 'object'
-        GROUP BY elem
-        HAVING COUNT(*) > 0
-          AND COUNT(*) FILTER (WHERE ind.value IN ('Y', 'A', 'I')) = COUNT(*)
-      )
-      """,
-      c.raw_json
+  defp maybe_status(query, "approved") do
+    # Get claims where all indicators are Y/A/I
+    from(c in query,
+      where:
+        fragment(
+          """
+          EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(?::jsonb) AS elem,
+                 jsonb_each_text(elem->'data'->'indicators') AS ind
+            WHERE elem->>'section' = 'claim'
+              AND jsonb_typeof(elem->'data'->'indicators') = 'object'
+            GROUP BY elem
+            HAVING COUNT(*) > 0
+              AND COUNT(*) FILTER (WHERE ind.value IN ('Y', 'A', 'I')) = COUNT(*)
+          )
+          """,
+          c.raw_json
+        )
     )
-  )
-end
+  end
 
-defp maybe_status(query, "pending") do
-  # Get claims where NOT all indicators are Y/A/I
-  from(c in query,
-    where: fragment(
-      """
-      NOT EXISTS (
-        SELECT 1
-        FROM jsonb_array_elements(?::jsonb) AS elem,
-             jsonb_each_text(elem->'data'->'indicators') AS ind
-        WHERE elem->>'section' = 'claim'
-          AND jsonb_typeof(elem->'data'->'indicators') = 'object'
-        GROUP BY elem
-        HAVING COUNT(*) > 0
-          AND COUNT(*) FILTER (WHERE ind.value IN ('Y', 'A', 'I')) = COUNT(*)
-      )
-      """,
-      c.raw_json
+  defp maybe_status(query, "pending") do
+    # Get claims where NOT all indicators are Y/A/I
+    from(c in query,
+      where:
+        fragment(
+          """
+          NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(?::jsonb) AS elem,
+                 jsonb_each_text(elem->'data'->'indicators') AS ind
+            WHERE elem->>'section' = 'claim'
+              AND jsonb_typeof(elem->'data'->'indicators') = 'object'
+            GROUP BY elem
+            HAVING COUNT(*) > 0
+              AND COUNT(*) FILTER (WHERE ind.value IN ('Y', 'A', 'I')) = COUNT(*)
+          )
+          """,
+          c.raw_json
+        )
     )
-  )
-end
+  end
 
-defp maybe_status(query, _), do: query
+  defp maybe_status(query, _), do: query
 end

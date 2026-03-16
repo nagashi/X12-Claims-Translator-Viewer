@@ -7,17 +7,20 @@ defmodule ClaimViewer.X12Translator do
 
   def translate_x12_to_json(x12_file_path) do
     # Generate temp output file path
-    temp_output = System.tmp_dir!()
-                  |> Path.join("x12_output_#{:os.system_time(:millisecond)}.json")
+    temp_output =
+      System.tmp_dir!()
+      |> Path.join("x12_output_#{:os.system_time(:millisecond)}.json")
 
-        # Use python3 for Mac compatibility (fallback to python)
+    # Use python3 for Mac compatibility (fallback to python)
     python_cmd =
       System.find_executable("python3") ||
-      System.find_executable("python") ||
-      raise("Python not found. Please install Python 3.")
+        System.find_executable("python") ||
+        raise("Python not found. Please install Python 3.")
 
     # Call Python script
-    case System.cmd("python", [@python_script_path, x12_file_path, temp_output], stderr_to_stdout: true) do
+    case System.cmd(python_cmd, [@python_script_path, x12_file_path, temp_output],
+           stderr_to_stdout: true
+         ) do
       {_output, 0} ->
         # Success - read JSON
         case File.read(temp_output) do

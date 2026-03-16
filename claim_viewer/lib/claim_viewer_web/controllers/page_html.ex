@@ -32,28 +32,31 @@ defmodule ClaimViewerWeb.PageHTML do
     }[key] ||
       key
       |> Macro.underscore()
-      |> String.replace("_"," ")
+      |> String.replace("_", " ")
       |> String.capitalize()
   end
 
   def format_date(date_string) when is_binary(date_string) do
     case Date.from_iso8601(date_string) do
       {:ok, date} ->
-        month = case date.month do
-          1 -> "January"
-          2 -> "February"
-          3 -> "March"
-          4 -> "April"
-          5 -> "May"
-          6 -> "June"
-          7 -> "July"
-          8 -> "August"
-          9 -> "September"
-          10 -> "October"
-          11 -> "November"
-          12 -> "December"
-        end
+        month =
+          case date.month do
+            1 -> "January"
+            2 -> "February"
+            3 -> "March"
+            4 -> "April"
+            5 -> "May"
+            6 -> "June"
+            7 -> "July"
+            8 -> "August"
+            9 -> "September"
+            10 -> "October"
+            11 -> "November"
+            12 -> "December"
+          end
+
         "#{month} #{date.day}, #{date.year}"
+
       _ ->
         date_string
     end
@@ -65,6 +68,7 @@ defmodule ClaimViewerWeb.PageHTML do
   # Format phone number to US style: (555) 666-7770
   def format_phone(nil), do: ""
   def format_phone(""), do: ""
+
   def format_phone(phone) when is_binary(phone) do
     # Remove all non-digits
     digits = String.replace(phone, ~r/\D/, "")
@@ -90,5 +94,6 @@ defmodule ClaimViewerWeb.PageHTML do
         phone
     end
   end
+
   def format_phone(phone), do: to_string(phone)
 end

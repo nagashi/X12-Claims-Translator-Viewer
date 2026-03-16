@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart TB
-    A[Receive X12 837P file]
+    A[Receive X12 837 file]
     B[Parse raw EDI text]
     C[Split text into segments using ~]
     D[Split each segment into elements using *]

@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "X12 837 5010 Claim Schema",
+  "description": "HIPAA-compliant JSON Schema for validating 837 Professional/Institutional/Dental claim data in section-array format.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": ["section", "data"],
+    "properties": {
+      "section": {
+        "type": "string",
+        "enum": [
+          "transaction",
+          "submitter",
+          "receiver",
+          "billing_Provider",
+          "Pay_To_provider",
+          "subscriber",
+          "payer",
+          "claim",
+          "diagnosis",
+          "renderingProvider",
+          "serviceFacility",
+          "service_Lines"
+        ]
+      },
+      "data": {}
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": { "section": { "const": "transaction" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "required": ["type", "version"],
+              "properties": {
+                "type": { "type": "string" },
+                "controlNumber": { "type": "string" },
+                "version": { "type": "string" },
+                "purpose": { "type": "string" },
+                "referenceId": { "type": "string" },
+                "date": { "type": "string" },
+                "time": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "submitter" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name": { "type": "string" },
+                "id": { "type": "string" },
+                "contact": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "phone": { "type": "string" },
+                    "extension": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "receiver" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "id": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "billing_Provider" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "taxId": { "type": "string" },
+                "npi": { "type": "string" },
+                "address": { "$ref": "#/$defs/address" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "Pay_To_provider" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "taxId": { "type": "string" },
+                "npi": { "type": "string" },
+                "address": { "$ref": "#/$defs/address" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "subscriber" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "required": ["lastName"],
+              "properties": {
+                "firstName": { "type": "string" },
+                "lastName": { "type": "string", "minLength": 1 },
+                "id": { "type": "string" },
+                "dob": { "type": "string" },
+                "sex": { "type": "string" },
+                "relationship": { "type": "string" },
+                "groupNumber": { "type": "string" },
+                "planType": { "type": "string" },
+                "address": { "$ref": "#/$defs/address" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "payer" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "payerId": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "claim" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "required": ["id", "totalCharge"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "totalCharge": { "type": "number" },
+                "placeOfService": { "type": "string" },
+                "serviceType": { "type": "string" },
+                "indicators": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string" }
+                },
+                "onsetDate": { "type": "string" },
+                "clearinghouseClaimNumber": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "diagnosis" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "primary": { "type": "string" },
+                "secondary": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "renderingProvider" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "firstName": { "type": "string" },
+                "lastName": { "type": "string" },
+                "npi": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "serviceFacility" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "taxId": { "type": "string" },
+                "address": { "$ref": "#/$defs/address" }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": { "section": { "const": "service_Lines" } }
+        },
+        "then": {
+          "properties": {
+            "data": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["procedureCode", "charge"],
+                "properties": {
+                  "lineNumber": { "type": "integer" },
+                  "codeQualifier": { "type": "string" },
+                  "procedureCode": { "type": "string" },
+                  "charge": { "type": "number" },
+                  "unitQualifier": { "type": "string" },
+                  "units": { "type": "number" },
+                  "diagnosisPointer": {},
+                  "emergencyIndicator": { "type": "string" },
+                  "serviceDate": { "type": "string" },
+                  "placeOfService": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "contains": {
+    "properties": { "section": { "const": "claim" } },
+    "required": ["section"]
+  },
+  "$defs": {
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "zip": { "type": "string" }
+      }
+    }
+  }
+}

@@ -13,16 +13,19 @@ defmodule ClaimViewer.Claims do
       pay_to_provider_name: get_in_section(sections, "Pay_To_provider", ["name"]),
       rendering_provider_name: get_in_section(sections, "renderingProvider", ["firstName"]),
       rendering_provider_npi: get_in_section(sections, "renderingProvider", ["npi"]),
-      clearinghouse_claim_number:
-        get_in_section(sections, "claim", ["clearinghouseClaimNumber"])
+      clearinghouse_claim_number: get_in_section(sections, "claim", ["clearinghouseClaimNumber"])
     }
   end
+
+  def extract_search_fields(_), do: %{}
 
   def extract_date_of_service(sections) do
     sections
     |> Enum.find(fn s -> get_section_name(s) == "service_Lines" end)
     |> case do
-      nil -> nil
+      nil ->
+        nil
+
       s ->
         data = get_section_data(s)
         [first | _] = data
@@ -30,13 +33,13 @@ defmodule ClaimViewer.Claims do
     end
   end
 
-  def extract_search_fields(_), do: %{}
-
   defp get_in_section(sections, section_name, path) do
     sections
     |> Enum.find(fn s -> get_section_name(s) == section_name end)
     |> case do
-      nil -> nil
+      nil ->
+        nil
+
       s ->
         data = get_section_data(s)
         get_in(data, path)

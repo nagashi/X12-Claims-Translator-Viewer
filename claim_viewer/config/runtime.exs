@@ -25,12 +25,12 @@ end
 if config_env() in [:dev, :test] do
   case System.get_env("SECRET_KEY_BASE") do
     secret when is_binary(secret) and byte_size(secret) >= 64 ->
-      config :claim_viewer, ClaimViewerWeb.Endpoint,
-        secret_key_base: secret
+      config :claim_viewer, ClaimViewerWeb.Endpoint, secret_key_base: secret
 
     _ ->
       config :claim_viewer, ClaimViewerWeb.Endpoint,
-        secret_key_base: "R+AZvFVPsG8Y4wLS4MMvlyGIcKFXdH5RfgB/flF28MqrO9LOg1aV+wuo0twxUf90SO1Hx1OT/b10zkGWHlaoWjejtm4qtCYqZ4JbP/6AeFiwvpEfTiLsQBtOMWFd2CUu"
+        secret_key_base:
+          "R+AZvFVPsG8Y4wLS4MMvlyGIcKFXdH5RfgB/flF28MqrO9LOg1aV+wuo0twxUf90SO1Hx1OT/b10zkGWHlaoWjejtm4qtCYqZ4JbP/6AeFiwvpEfTiLsQBtOMWFd2CUu"
   end
 end
 
