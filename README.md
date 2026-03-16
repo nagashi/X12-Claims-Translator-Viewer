@@ -4,7 +4,7 @@ A Phoenix/Elixir web application for viewing and searching healthcare claims in 
 
 ## Project Context
 
-This application is part of the **X12 837P Translator and Claims Viewer Program**. The complete system translates EDI-formatted healthcare claims into JSON and provides a user-friendly web interface for viewing and searching claim data.
+This application is part of the **X12 837 Translator and Claims Viewer Program**. The complete system translates EDI-formatted healthcare claims into JSON and provides a user-friendly web interface for viewing and searching claim data.
 
 **Project Components:**
 - **X12 to JSON Translation** - Python tool using PyX12 library (separate component)
@@ -37,6 +37,7 @@ This application is part of the **X12 837P Translator and Claims Viewer Program*
 - Jason
 - Python 3 with pyx12 library
 - Rust toolchain (see [Rust-Backed JSON Schema Validation](#rust-backed-json-schema-validation) below for details)
+- wkhtmltopdf (optional, for PDF export)
 
 ## Installation
 
@@ -65,6 +66,12 @@ mix ecto.migrate
 
 # Start Phoenix server
 mix phx.server
+
+# Or use the setup alias (installs deps, creates DB, runs migrations, builds assets)
+mix setup
+
+# Start inside IEx (interactive Elixir shell)
+iex -S mix phx.server
 ```
 
 Visit **http://localhost:4000** in your browser.
@@ -341,6 +348,8 @@ The application uses the [`ex_jsonschema`](https://hex.pm/packages/ex_jsonschema
 - **Jason Library**: Handles JSON encoding/decoding
 - **ExJsonschema**: Rust-backed JSON Schema validation via NIF for high-performance claim validation
 - **Tailwind CSS**: Dark theme implemented with Tailwind CSS utility classes
+- **Python pyx12**: X12 parsing called as an external subprocess via `System.cmd`
+- **PDF Generator**: `pdf_generator` wrapping `wkhtmltopdf` for claim PDF export (optional)
 - **No External UI Libraries**: Pure HTML/Elixir templates without JavaScript frameworks
 
 ## Contributors
@@ -453,6 +462,74 @@ flowchart TD
     K --> L
     L --> M[Redirect to dashboard]
 ```
+
+### Validation Pipeline
+
+The upload pipeline enforces data integrity through three sequential validation layers. Each layer targets a different class of errors, ensuring the JSON output faithfully represents the original X12 837 data. A claim must pass all three layers before it is persisted.
+
+```mermaid
+flowchart TD
+    FILE[/"X12 File Upload"/] --> L1
+
+    subgraph L1 ["Layer 1: Envelope Validation — X12Validator"]
+        direction TB
+        L1A["ISA header check<br/>(fixed 106-char format)"]
+        L1B["Segment terminator<br/>detection (position 105)"]
+        L1C["IEA trailer verification"]
+        L1D["GS↔GE functional group<br/>envelope matching"]
+        L1E["ST↔SE transaction set<br/>envelope matching"]
+        L1F["ST*837 transaction<br/>type enforcement"]
+        L1A --> L1B --> L1C --> L1D --> L1E --> L1F
+    end
+
+    L1 -->|"Valid: N transaction sets"| PARSE["X12Translator<br/>Python pyx12 → JSON"]
+    L1 -->|"Invalid"| REJECT1["❌ Rejected with<br/>specific envelope error"]
+
+    PARSE --> L2
+
+    subgraph L2 ["Layer 2: Type-Safe Struct Mapping — X12.Mapper"]
+        direction TB
+        L2A["from_sections/1<br/>JSON → Claim837 struct"]
+        L2B["Guard clauses enforce types<br/>in each struct's from_map/1"]
+        L2C["to_validated_sections/1<br/>Claim837 → normalized section maps"]
+        L2A --> L2B --> L2C
+    end
+
+    L2 -->|"Type-validated sections"| L3
+    L2 -->|"Type mismatch"| REJECT2["❌ Struct mapping error"]
+
+    subgraph L3 ["Layer 3: Schema Validation — SchemaValidator"]
+        direction TB
+        L3A["Encode sections to JSON string"]
+        L3B["ExJsonschema Rust NIF<br/>validates against<br/>837_5010_schema.json"]
+        L3C["Enforces: required fields,<br/>value types, section names,<br/>nested structures"]
+        L3A --> L3B --> L3C
+    end
+
+    L3 -->|"Schema-compliant"| SAVE["✅ Extract search fields<br/>and persist to PostgreSQL"]
+    L3 -->|"Schema violation"| REJECT3["❌ Schema validation errors"]
+
+    style L1 fill:#1e3a5f,color:#fff,stroke:#2e6295
+    style L2 fill:#1e3a5f,color:#fff,stroke:#2e6295
+    style L3 fill:#1e3a5f,color:#fff,stroke:#2e6295
+    style FILE fill:#08427b,color:#fff,stroke:#08427b
+    style PARSE fill:#438dd5,color:#fff,stroke:#2e6295
+    style SAVE fill:#166534,color:#fff,stroke:#15803d
+    style REJECT1 fill:#991b1b,color:#fff,stroke:#b91c1c
+    style REJECT2 fill:#991b1b,color:#fff,stroke:#b91c1c
+    style REJECT3 fill:#991b1b,color:#fff,stroke:#b91c1c
+```
+
+**Layer 1 — Envelope Validation** (`lib/claim_viewer/x12_validator.ex`)
+Operates on raw file bytes before any parsing. Validates the X12 interchange envelope structure: ISA/IEA, GS/GE, and ST/SE pairs must be present and balanced. Every ST segment must declare transaction type `837`. Rejects non-X12 content and non-837 transaction types immediately.
+
+**Layer 2 — Type-Safe Struct Mapping** (`lib/claim_viewer/x12/mapper.ex`)
+After the Python parser produces JSON sections, each section is converted into a typed Elixir struct (`Claim837` containing `Transaction`, `Subscriber`, `Payer`, `ClaimInfo`, `ServiceLine`, etc.) via `from_sections/1`. Guard clauses in each struct's `from_map/1` enforce data types. The structs are then converted back to section maps via `to_validated_sections/1`, completing a round-trip that normalizes all values.
+
+**Layer 3 — JSON Schema Validation** (`lib/claim_viewer/x12/schema_validator.ex`)
+The normalized sections are validated against a HIPAA-compliant 837 5010 JSON Schema (`priv/schemas/837_5010_schema.json`) using the Rust-backed `ExJsonschema` library. The schema enforces required sections (e.g., `claim` must exist), required fields per section (e.g., `id` and `totalCharge` on claims), correct value types, allowed section names via enum constraint, and nested structures like addresses. The compiled schema is cached in `:persistent_term` for near-instant runtime validation.
+
+All three layers are orchestrated by `process_single_transaction_set/2` in `PageController` (line 238). If any layer fails, that transaction set is rejected with a descriptive error while other sets in the same interchange can still succeed.
 
 ### Search and Display Flow
 
