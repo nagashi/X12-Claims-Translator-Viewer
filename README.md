@@ -547,3 +547,4 @@ mix precommit
 ## Acknowledgments
 
 Special thanks to the team working on the X12 837P Translator and Claims Viewer Program for their collaboration and support.
+ 
