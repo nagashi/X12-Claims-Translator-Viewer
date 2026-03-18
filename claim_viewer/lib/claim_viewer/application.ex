@@ -12,8 +12,7 @@ defmodule ClaimViewer.Application do
       ClaimViewer.Repo,
       {DNSCluster, query: Application.get_env(:claim_viewer, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ClaimViewer.PubSub},
-      # Start a worker by calling: ClaimViewer.Worker.start_link(arg)
-      # {ClaimViewer.Worker, arg},
+      {ChromicPDF, session_pool: [timeout: 30_000], on_demand: true},
       # Start to serve requests, typically the last entry
       ClaimViewerWeb.Endpoint
     ]

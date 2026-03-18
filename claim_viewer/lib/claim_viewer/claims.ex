@@ -5,9 +5,9 @@ defmodule ClaimViewer.Claims do
 
   def extract_search_fields(sections) when is_list(sections) do
     %{
-      patient_first_name: get_in_section(sections, "subscriber", ["firstName"]),
-      patient_last_name: get_in_section(sections, "subscriber", ["lastName"]),
-      patient_dob: get_in_section(sections, "subscriber", ["dob"]),
+      member_first_name: get_in_section(sections, "subscriber", ["firstName"]),
+      member_last_name: get_in_section(sections, "subscriber", ["lastName"]),
+      member_dob: get_in_section(sections, "subscriber", ["dob"]),
       payer_name: get_in_section(sections, "payer", ["name"]),
       billing_provider_name: get_in_section(sections, "billing_Provider", ["name"]),
       pay_to_provider_name: get_in_section(sections, "Pay_To_provider", ["name"]),

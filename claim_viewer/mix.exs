@@ -66,7 +66,7 @@ defmodule ClaimViewer.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
-      {:pdf_generator, "~> 0.6.2", runtime: false},
+      {:chromic_pdf, "~> 1.17"},
       {:ex_jsonschema, "~> 0.1.17"}
     ]
   end

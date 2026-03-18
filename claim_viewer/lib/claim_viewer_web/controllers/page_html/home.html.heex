@@ -78,19 +78,19 @@
     <form method="get" action="/search" id="search-form">
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
         
-<!-- Patient First Name -->
+<!-- Member First Name -->
         <div style="position:relative;">
           <input
-            id="patient_first"
-            name="patient_first"
-            value={@patient_first}
-            placeholder="Patient first name"
+            id="member_first"
+            name="member_first"
+            value={@member_first}
+            placeholder="Member first name"
             style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;"
           />
-          <%= if @patient_first != "" do %>
+          <%= if @member_first != "" do %>
             <button
               type="button"
-              onclick="document.getElementById('patient_first').value=''; document.getElementById('patient_first').focus();"
+              onclick="document.getElementById('member_first').value=''; document.getElementById('member_first').focus();"
               style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;"
             >
               ×
@@ -101,19 +101,19 @@
           </small>
         </div>
         
-<!-- Patient Last Name -->
+<!-- Member Last Name -->
         <div style="position:relative;">
           <input
-            id="patient_last"
-            name="patient_last"
-            value={@patient_last}
-            placeholder="Patient last name"
+            id="member_last"
+            name="member_last"
+            value={@member_last}
+            placeholder="Member last name"
             style="background:#020617;border:2px solid #06b6d4;color:white;padding:10px 30px 10px 10px;border-radius:8px;width:100%;"
           />
-          <%= if @patient_last != "" do %>
+          <%= if @member_last != "" do %>
             <button
               type="button"
-              onclick="document.getElementById('patient_last').value=''; document.getElementById('patient_last').focus();"
+              onclick="document.getElementById('member_last').value=''; document.getElementById('member_last').focus();"
               style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:20px;padding:0;width:24px;height:24px;line-height:1;"
             >
               ×
@@ -342,7 +342,7 @@
       <table class="fade-in" style="width:100%; margin-top:10px; border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:2px solid #38bdf8;">
-            <th align="left">Patient</th>
+            <th align="left">Member</th>
             <th align="left">Payer</th>
             <th align="left">Claim #</th>
           </tr>
@@ -356,7 +356,7 @@
             <tr style="border-bottom:1px solid #1e293b;">
               <td style="padding:8px;">
                 <a href={"/claims/#{claim.id}"} style="color:#22d3ee; text-decoration:underline;">
-                  {claim.patient_first_name} {claim.patient_last_name}
+                  {claim.member_first_name} {claim.member_last_name}
                 </a>
                 <%= if is_new do %>
                   <span style="background:#22c55e; color:white; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin-left:8px;">
@@ -380,7 +380,7 @@
           <!-- Previous Button -->
           <%= if @page > 1 do %>
             <a
-              href={"/search?patient_first=#{@patient_first}&patient_last=#{@patient_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{@page - 1}"}
+              href={"/search?member_first=#{@member_first}&member_last=#{@member_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{@page - 1}"}
               style="background:#334155; color:white; padding:8px 12px; border-radius:6px; text-decoration:none; font-size:14px;"
             >
               ← Previous
@@ -399,7 +399,7 @@
               </span>
             <% else %>
               <a
-                href={"/search?patient_first=#{@patient_first}&patient_last=#{@patient_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{p}"}
+                href={"/search?member_first=#{@member_first}&member_last=#{@member_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{p}"}
                 style="background:#334155; color:white; padding:8px 12px; border-radius:6px; text-decoration:none; font-size:14px;"
               >
                 {p}
@@ -410,7 +410,7 @@
 <!-- Next Button -->
           <%= if @page < @total_pages do %>
             <a
-              href={"/search?patient_first=#{@patient_first}&patient_last=#{@patient_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{@page + 1}"}
+              href={"/search?member_first=#{@member_first}&member_last=#{@member_last}&payer=#{@payer}&billing_provider=#{@billing_provider}&rendering_provider=#{@rendering_provider}&claim_number=#{@claim_number}&service_from=#{@service_from}&service_to=#{@service_to}&page=#{@page + 1}"}
               style="background:#334155; color:white; padding:8px 12px; border-radius:6px; text-decoration:none; font-size:14px;"
             >
               Next →
@@ -521,7 +521,7 @@
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px 24px;">
           <div>
-            <span style="color:#94a3b8; font-size:13px;">Patient:</span>
+            <span style="color:#94a3b8; font-size:13px;">Member:</span>
             <span style="color:white; font-weight:600; margin-left:8px;">
               {subscriber_data["firstName"]} {subscriber_data["lastName"]}
               <%= if subscriber_data["dob"] do %>

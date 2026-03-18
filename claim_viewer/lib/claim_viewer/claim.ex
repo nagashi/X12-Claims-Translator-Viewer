@@ -6,9 +6,9 @@ defmodule ClaimViewer.Claims.Claim do
     field :raw_json, {:array, :map}
 
     # SEARCHABLE FIELDS
-    field :patient_first_name, :string
-    field :patient_last_name, :string
-    field :patient_dob, :date
+    field :member_first_name, :string
+    field :member_last_name, :string
+    field :member_dob, :date
 
     field :payer_name, :string
 
@@ -31,9 +31,9 @@ defmodule ClaimViewer.Claims.Claim do
     claim
     |> cast(attrs, [
       :raw_json,
-      :patient_first_name,
-      :patient_last_name,
-      :patient_dob,
+      :member_first_name,
+      :member_last_name,
+      :member_dob,
       :payer_name,
       :billing_provider_name,
       :billing_provider_npi,

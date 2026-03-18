@@ -1,5 +1,5 @@
 defmodule ClaimViewer.X12.Subscriber do
-  @moduledoc "Represents the subscriber/patient (NM1*IL) in an X12 837."
+  @moduledoc "Represents the subscriber/member (NM1*IL) in an X12 837."
 
   alias ClaimViewer.X12.Address
 

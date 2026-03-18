@@ -70,8 +70,8 @@ defmodule ClaimViewerWeb.PageController do
   end
 
   def home(conn, params) do
-    first = params |> Map.get("patient_first", "") |> String.trim()
-    last = params |> Map.get("patient_last", "") |> String.trim()
+    first = params |> Map.get("member_first", "") |> String.trim()
+    last = params |> Map.get("member_last", "") |> String.trim()
     payer = params |> Map.get("payer", "") |> String.trim()
     billing_provider = params |> Map.get("billing_provider", "") |> String.trim()
     rendering_provider = params |> Map.get("rendering_provider", "") |> String.trim()
@@ -126,8 +126,8 @@ defmodule ClaimViewerWeb.PageController do
     render(conn, :home,
       claims: claims,
       show_results: has_search?,
-      patient_first: first,
-      patient_last: last,
+      member_first: first,
+      member_last: last,
       payer: payer,
       billing_provider: billing_provider,
       rendering_provider: rendering_provider,
@@ -149,8 +149,8 @@ defmodule ClaimViewerWeb.PageController do
     render(conn, :home,
       claims: [],
       show_results: false,
-      patient_first: "",
-      patient_last: "",
+      member_first: "",
+      member_last: "",
       payer: "",
       billing_provider: "",
       rendering_provider: "",
@@ -336,14 +336,6 @@ defmodule ClaimViewerWeb.PageController do
         |> put_resp_header("content-disposition", ~s(attachment; filename="claim_#{id}.pdf"))
         |> send_resp(200, pdf_binary)
 
-      {:error, :pdf_unavailable} ->
-        conn
-        |> put_flash(
-          :error,
-          "PDF export is not available. wkhtmltopdf may not be installed or configured correctly."
-        )
-        |> redirect(to: "/claims/#{id}")
-
       {:error, reason} ->
         conn
         |> put_flash(:error, "Failed to generate PDF: #{inspect(reason)}")
@@ -389,7 +381,7 @@ defmodule ClaimViewerWeb.PageController do
     csv_content = """
     CLAIM SUMMARY
     =============
-    Patient: #{subscriber_data["firstName"]} #{subscriber_data["lastName"]} (DOB: #{format_date_plain(subscriber_data["dob"])})
+    Member: #{subscriber_data["firstName"]} #{subscriber_data["lastName"]} (DOB: #{format_date_plain(subscriber_data["dob"])})
     Payer: #{payer_data["name"]}
     Claim #: #{claim_data["clearinghouseClaimNumber"] || claim_data["id"]}
     Service Dates: #{if first_date && last_date do
@@ -540,15 +532,15 @@ defmodule ClaimViewerWeb.PageController do
         where(
           query,
           [c],
-          ilike(c.patient_first_name, ^"%#{first}%") and
-            ilike(c.patient_last_name, ^"%#{last}%")
+          ilike(c.member_first_name, ^"%#{first}%") and
+            ilike(c.member_last_name, ^"%#{last}%")
         )
 
       first != "" ->
-        where(query, [c], ilike(c.patient_first_name, ^"%#{first}%"))
+        where(query, [c], ilike(c.member_first_name, ^"%#{first}%"))
 
       last != "" ->
-        where(query, [c], ilike(c.patient_last_name, ^"%#{last}%"))
+        where(query, [c], ilike(c.member_last_name, ^"%#{last}%"))
 
       true ->
         query
@@ -608,7 +600,7 @@ defmodule ClaimViewerWeb.PageController do
     """
     <div class="summary">
       <h2 style="margin-top:0;">CLAIM SUMMARY</h2>
-      <div class="field"><strong>Patient:</strong> #{subscriber_data["firstName"]} #{subscriber_data["lastName"]}</div>
+      <div class="field"><strong>Member:</strong> #{subscriber_data["firstName"]} #{subscriber_data["lastName"]}</div>
       <div class="field"><strong>Payer:</strong> #{payer_data["name"]}</div>
       <div class="field"><strong>Claim #:</strong> #{claim_data["clearinghouseClaimNumber"]}</div>
       <div class="field"><strong>Total Charge:</strong> $#{claim_data["totalCharge"]}</div>

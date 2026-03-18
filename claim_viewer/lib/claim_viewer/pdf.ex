@@ -1,38 +1,24 @@
 defmodule ClaimViewer.PDF do
   @moduledoc """
-  PDF generation with graceful degradation.
-  If wkhtmltopdf is not available, returns error instead of crashing.
+  PDF generation using ChromicPDF (Chrome headless).
   """
-
-  @doc """
-  Check if wkhtmltopdf executable exists on the system.
-  """
-  def available? do
-    System.find_executable("wkhtmltopdf") != nil
-  end
 
   @doc """
   Generate PDF from HTML content.
   Returns {:ok, binary} if successful, {:error, reason} otherwise.
   """
   def generate(html_content) do
-    if not available?() do
-      {:error, :pdf_unavailable}
-    else
-      # Only start pdf_generator if wkhtmltopdf exists
-      Application.ensure_all_started(:pdf_generator)
+    case ChromicPDF.print_to_pdf({:html, html_content},
+           print_to_pdf: %{paperWidth: 8.5, paperHeight: 11, marginTop: 0.4, marginBottom: 0.4},
+           timeout: 30_000
+         ) do
+      {:ok, blob} ->
+        {:ok, Base.decode64!(blob)}
 
-      case PdfGenerator.generate(html_content, page_size: "A4") do
-        {:ok, pdf_path} ->
-          pdf_binary = File.read!(pdf_path)
-          File.rm(pdf_path)
-          {:ok, pdf_binary}
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+      {:error, reason} ->
+        {:error, reason}
     end
   rescue
-    _ -> {:error, :pdf_unavailable}
+    e -> {:error, Exception.message(e)}
   end
 end

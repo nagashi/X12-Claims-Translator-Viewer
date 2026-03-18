@@ -39,5 +39,7 @@ npm-debug.log
 run_dev.bat
 run_dev.sh
 config/dev.exs.BACKUP
+test-claims/
+docs/
 
 
