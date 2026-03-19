@@ -18,10 +18,10 @@ This application is part of the **X12 837 Translator and Claims Viewer Program**
 ✅ **Type-Safe Structs** — All 837 sections are mapped to enforced Elixir structs for data integrity  
 ✅ **JSON Schema Validation** — Rust-backed validator enforces HIPAA-compliant 837 5010 schema  
 ✅ **Persistent Storage** — PostgreSQL database storing both raw JSON and extracted searchable fields  
-✅ **Advanced Multi-Criteria Search** — Search by patient name, payer, providers, claim number, and service date range  
+✅ **Advanced Multi-Criteria Search** — Search by member name, payer, providers, claim number, and service date range
 ✅ **Structured Display** — Clean, organized view of all claim sections in form-like layout (not raw JSON)  
 ✅ **Service Lines Table** — Dedicated table view for line-item charges with procedure codes, dates, and amounts  
-✅ **Search Results Table** — Interactive results grid showing patient, payer, and claim information  
+✅ **Search Results Table** — Interactive results grid showing member, payer, and claim information
 ✅ **Modern Dark Theme UI** — Professional interface with cyan/green color scheme  
 ✅ **Case-Insensitive Search** — ILIKE queries for flexible text matching  
 ✅ **Date Range Filtering** — Filter claims by service date period  
@@ -213,12 +213,12 @@ flowchart TD
     D -->|No| E[Show empty state message]
     D -->|Yes| F[Build Ecto query<br/>ILIKE filters, date range, status]
     F --> G[Execute query with pagination]
-    G --> H[Render results table<br/>Patient, Payer, Claim number]
-    H --> I[Click patient name]
+    G --> H[Render results table<br/>Member, Payer, Claim number]
+    H --> I[Click member name]
     I --> J[GET /claims/:id]
     J --> K[Render full claim view:<br/>type badge, summary card,<br/>all sections, service lines]
     K --> L{Export?}
-    L -->|PDF| M[Generate HTML then wkhtmltopdf]
+    L -->|PDF| M[Generate HTML then ChromicPDF]
     L -->|CSV| N[Generate text report]
 ```
 
@@ -237,7 +237,7 @@ flowchart LR
         X12Translator
         Claims["Claims Context"]
         ClaimSchema["Claims.Claim<br/>Ecto Schema"]
-        PDF["PDF Generator"]
+        PDF["PDF Generator<br/>(ChromicPDF)"]
     end
 
     subgraph X12["ClaimViewer.X12"]
@@ -270,7 +270,7 @@ flowchart LR
 - Jason
 - Python 3 with pyx12 library
 - Rust toolchain (see [Rust-Backed JSON Schema Validation](#rust-backed-json-schema-validation) below for details)
-- wkhtmltopdf (optional, for PDF export)
+- Google Chrome or Chromium (for PDF export via ChromicPDF)
 
 ## Getting Started
 
@@ -289,8 +289,9 @@ python3 -m pip install pyx12
 # Install dependencies
 mix deps.get
 
-# Configure database
-# Edit config/dev.exs with your PostgreSQL credentials.
+# export PGUSER=YourUserName    
+# export PGPASSWORD=YourPassWord
+# export PGPORT=5432
 
 # Create and migrate database
 mix ecto.create
@@ -330,8 +331,8 @@ If the interchange contains multiple transaction sets, each is processed and val
 
 The search form supports multiple criteria that can be used individually or combined:
 
-- **Patient first name** — Partial match, case-insensitive
-- **Patient last name** — Partial match, case-insensitive
+- **Member first name** — Partial match, case-insensitive
+- **Member last name** — Partial match, case-insensitive
 - **Payer name** — Insurance company name search
 - **Billing provider** — Provider organization name
 - **Rendering provider NPI** — Individual provider NPI number
@@ -342,14 +343,14 @@ Click **Search** to view matching results or **Clear** to reset all fields.
 
 ### Viewing Claim Details
 
-Search results are displayed in a table with patient name, payer, and claim number. Click any patient name to view the full claim, which displays data in a structured layout with sections:
+Search results are displayed in a table with member name, payer, and claim number. Click any member name to view the full claim, which displays data in a structured layout with sections:
 
 - **Transaction** — Control number, date, purpose, reference ID, time, type, version
 - **Submitter** — Contact information, ID, name
 - **Receiver** — ID and name
 - **Billing Provider** — Address, name, tax ID
 - **Pay-To Provider** — Address, name, tax ID
-- **Subscriber** — Patient address, DOB, name, group number, ID, plan type, relationship, sex
+- **Subscriber** — Member address, DOB, name, group number, ID, plan type, relationship, sex
 - **Payer** — Payer name and payer ID
 - **Claim** — Clearinghouse claim number, ID, indicators, onset date, place of service, service type, total charge
 - **Diagnosis** — Primary and secondary diagnosis codes
@@ -359,7 +360,7 @@ Search results are displayed in a table with patient name, payer, and claim numb
 
 ### Exporting Claims
 
-- **PDF** — Full claim report generated via wkhtmltopdf
+- **PDF** — Full claim report generated via ChromicPDF (Chrome headless)
 - **CSV** — Human-readable text report with all sections
 
 ## Routes
@@ -384,9 +385,9 @@ schema "claims" do
   field :raw_json, {:array, :map}          # Complete JSON claim data
 
   # Searchable fields automatically extracted during upload
-  field :patient_first_name, :string
-  field :patient_last_name, :string
-  field :patient_dob, :date
+  field :member_first_name, :string
+  field :member_last_name, :string
+  field :member_dob, :date
   field :payer_name, :string
   field :billing_provider_name, :string
   field :billing_provider_npi, :string
@@ -464,9 +465,9 @@ The `Claims` context module extracts searchable fields from the nested JSON stru
 ```elixir
 def extract_search_fields(sections) do
   %{
-    patient_first_name: get_in_section(sections, "subscriber", ["firstName"]),
-    patient_last_name: get_in_section(sections, "subscriber", ["lastName"]),
-    patient_dob: get_in_section(sections, "subscriber", ["dob"]),
+    member_first_name: get_in_section(sections, "subscriber", ["firstName"]),
+    member_last_name: get_in_section(sections, "subscriber", ["lastName"]),
+    member_dob: get_in_section(sections, "subscriber", ["dob"]),
     payer_name: get_in_section(sections, "payer", ["name"]),
     # ... additional fields
   }
@@ -508,7 +509,7 @@ The application uses [`ex_jsonschema`](https://hex.pm/packages/ex_jsonschema) fo
 - **Database:** PostgreSQL via Ecto
 - **X12 parsing:** Python `pyx12` library (called as subprocess)
 - **JSON Schema validation:** `ex_jsonschema` (Rust NIF via `jsonschema` crate)
-- **PDF generation:** `pdf_generator` wrapping `wkhtmltopdf` (optional)
+- **PDF generation:** `chromic_pdf` using Chrome headless (DevTools Protocol)
 - **Frontend:** Server-rendered HEEx templates with Tailwind CSS dark theme
 - **No external UI libraries** — Pure HTML/Elixir templates without JavaScript frameworks
 
@@ -541,10 +542,15 @@ mix precommit
 
 ## Contributors
 
-- **Irini** — Claim Viewer development (Phoenix/Elixir component)
-- **X12 to JSON Translation** — Python-based translator using the PyX12 library (developed as a separate component)
+<ol type="I">
+  <li><b>Irini Gega</b></li>
+  <li><b>Le Luo</b></li>
+  <li><b>Charles E. O'Riley Jr.</b></li>
+  <li><b>Don Fox</b></li>
+  <li><b>Verbus M. Counts</b></li>
+</ol>
 
 ## Acknowledgments
 
-Special thanks to the team working on the X12 837P Translator and Claims Viewer Program for their collaboration and support.
+Special thanks to the team working on the X12 837 Translator and Claims Viewer Program for their collaboration and support.
  
