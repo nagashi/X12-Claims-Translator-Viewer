@@ -289,9 +289,14 @@ python3 -m pip install pyx12
 # Install dependencies
 mix deps.get
 
-# export PGUSER=YourUserName    
-# export PGPASSWORD=YourPassWord
-# export PGPORT=5432
+# Change UName to your user name
+export PGUSER=UName
+
+# Change PWD to your password
+export PGPASSWORD=PWD
+
+# Set the port to 5432
+export PGPORT=5432
 
 # Create and migrate database
 mix ecto.create
