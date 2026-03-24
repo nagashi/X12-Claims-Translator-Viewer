@@ -27,6 +27,11 @@ defmodule ClaimViewer.X12Validator do
   end
 
   defp validate_content(content) do
+    # X12 is ASCII — reject non-UTF-8 binary early to prevent String function crashes
+    unless String.valid?(content) do
+      throw({:error, "File contains invalid characters (not valid UTF-8/ASCII)"})
+    end
+
     content = String.trim(content)
 
     with :ok <- validate_isa_header(content),
@@ -37,6 +42,8 @@ defmodule ClaimViewer.X12Validator do
          {:ok, count} <- validate_st_se_transaction_sets(segments) do
       {:ok, count}
     end
+  catch
+    {:error, _reason} = err -> err
   end
 
   # ISA segment is always exactly 106 characters (fixed-length) and starts with "ISA"

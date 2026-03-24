@@ -44,5 +44,10 @@ defmodule ClaimViewer.Claims.Claim do
       :clearinghouse_claim_number,
       :date_of_service
     ])
+    |> validate_required([:raw_json])
+    |> validate_format(:billing_provider_npi, ~r/^\d{10}$/, message: "must be exactly 10 digits")
+    |> validate_format(:rendering_provider_npi, ~r/^\d{10}$/,
+      message: "must be exactly 10 digits"
+    )
   end
 end

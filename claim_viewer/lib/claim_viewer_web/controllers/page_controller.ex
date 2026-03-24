@@ -1,150 +1,44 @@
 defmodule ClaimViewerWeb.PageController do
   use ClaimViewerWeb, :controller
 
-  alias ClaimViewer.Repo
   alias ClaimViewer.Claims
-  alias ClaimViewer.Claims.Claim
-  import Ecto.Query
-
-  # ===== Helpers =====
-
-  defp valid_search?(value) do
-    String.length(value) >= 2
-  end
 
   # ===== Actions =====
 
   def dashboard(conn, _params) do
-    # Get statistics
-    total_claims = Repo.aggregate(Claim, :count, :id)
-
-    # Calculate revenue and status counts
-    claims = Repo.all(Claim)
-
-    {approved_count, approved_revenue} =
-      claims
-      |> Enum.filter(fn claim ->
-        indicators =
-          get_in(claim.raw_json, [
-            Access.filter(fn s -> s["section"] == "claim" end),
-            "data",
-            "indicators"
-          ])
-          |> List.first() || %{}
-
-        Enum.all?(Map.values(indicators), fn v -> v in ["Y", "A", "I"] end) and indicators != %{}
-      end)
-      |> Enum.reduce({0, 0}, fn claim, {count, revenue} ->
-        charge =
-          get_in(claim.raw_json, [
-            Access.filter(fn s -> s["section"] == "claim" end),
-            "data",
-            "totalCharge"
-          ])
-          |> List.first() || 0
-
-        {count + 1, revenue + charge}
-      end)
-
-    pending_count = total_claims - approved_count
-
-    # Claims over 30 days
-    thirty_days_ago = NaiveDateTime.utc_now() |> NaiveDateTime.add(-30 * 24 * 60 * 60, :second)
-    old_claims = Repo.all(from c in Claim, where: c.inserted_at < ^thirty_days_ago) |> length()
-
-    # This month
-    now = NaiveDateTime.utc_now()
-    first_day = %{now | day: 1, hour: 0, minute: 0, second: 0, microsecond: {0, 0}}
-
-    this_month_count =
-      Repo.aggregate(from(c in Claim, where: c.inserted_at >= ^first_day), :count, :id)
-
-    render(conn, :dashboard,
-      total_claims: total_claims,
-      approved_count: approved_count,
-      approved_revenue: approved_revenue,
-      pending_count: pending_count,
-      old_claims: old_claims,
-      this_month_count: this_month_count
-    )
+    stats = Claims.dashboard_stats()
+    render(conn, :dashboard, Map.to_list(stats))
   end
 
   def home(conn, params) do
-    first = params |> Map.get("member_first", "") |> String.trim()
-    last = params |> Map.get("member_last", "") |> String.trim()
-    payer = params |> Map.get("payer", "") |> String.trim()
-    billing_provider = params |> Map.get("billing_provider", "") |> String.trim()
-    rendering_provider = params |> Map.get("rendering_provider", "") |> String.trim()
-    claim_number = params |> Map.get("claim_number", "") |> String.trim()
-    service_from = params |> Map.get("service_from", "") |> String.trim()
-    service_to = params |> Map.get("service_to", "") |> String.trim()
-    status = params |> Map.get("status", "") |> String.trim()
-
-    page =
-      case Integer.parse(params |> Map.get("page", "1")) do
-        {num, _} -> num
-        :error -> 1
-      end
-
-    has_search? =
-      valid_search?(first) or
-        valid_search?(last) or
-        valid_search?(payer) or
-        valid_search?(billing_provider) or
-        valid_search?(rendering_provider) or
-        valid_search?(claim_number) or
-        service_from != "" or
-        service_to != "" or
-        status != ""
-
+    filters = trim_filters(params)
+    page = parse_page(params)
     per_page = 10
-    offset = (page - 1) * per_page
 
-    {claims, total_count} =
-      if has_search? do
-        query =
-          from(c in Claim)
-          |> maybe_full_name(first, last)
-          |> maybe_like(:payer_name, payer)
-          |> maybe_like(:billing_provider_name, billing_provider)
-          |> maybe_exact(:rendering_provider_npi, rendering_provider)
-          |> maybe_like(:clearinghouse_claim_number, claim_number)
-          |> maybe_date_range(service_from, service_to)
-          |> maybe_status(status)
-          |> order_by([c], desc: c.inserted_at)
-
-        total = Repo.aggregate(query, :count, :id)
-        claims = query |> limit(^per_page) |> offset(^offset) |> Repo.all()
-
-        {claims, total}
-      else
-        {[], 0}
-      end
-
-    total_pages = if total_count > 0, do: ceil(total_count / per_page), else: 0
+    {claims, meta} = Claims.list_claims(filters, %{page: page, per_page: per_page})
 
     render(conn, :home,
       claims: claims,
-      show_results: has_search?,
-      member_first: first,
-      member_last: last,
-      payer: payer,
-      billing_provider: billing_provider,
-      rendering_provider: rendering_provider,
-      claim_number: claim_number,
-      service_from: service_from,
-      service_to: service_to,
-      page: page,
-      total_pages: total_pages,
-      total_count: total_count,
+      show_results: meta.total_count > 0 or has_search?(filters),
+      member_first: filters["member_first"],
+      member_last: filters["member_last"],
+      payer: filters["payer"],
+      billing_provider: filters["billing_provider"],
+      rendering_provider: filters["rendering_provider"],
+      claim_number: filters["claim_number"],
+      service_from: filters["service_from"],
+      service_to: filters["service_to"],
+      page: meta.page,
+      total_pages: meta.total_pages,
+      total_count: meta.total_count,
       json: nil,
-      status: status,
+      status: filters["status"],
       claim_id: nil
     )
   end
 
   def show(conn, %{"id" => id}) do
-    claim = Repo.get!(Claim, id)
+    claim = Claims.get_claim!(id)
 
     render(conn, :home,
       claims: [],
@@ -166,22 +60,18 @@ defmodule ClaimViewerWeb.PageController do
     )
   end
 
-  # ===== UPLOAD - X12 FILES (CONTENT-VALIDATED) =====
+  # ===== Upload =====
 
   def upload(conn, %{"file" => %Plug.Upload{path: path, filename: filename}}) do
-    # Validate file content is X12 837 (extension-agnostic)
-    case ClaimViewer.X12Validator.validate_file_content(path) do
-      {:ok, tx_set_count} ->
-        IO.puts("✅ Valid X12 837 file: #{filename} (#{tx_set_count} transaction set(s))")
-
-        handle_x12_upload(conn, path, filename)
+    case Claims.Ingestion.ingest_file(path, filename) do
+      {:ok, result} ->
+        conn
+        |> build_upload_flash(filename, result)
+        |> redirect(to: "/")
 
       {:error, reason} ->
         conn
-        |> put_flash(
-          :error,
-          "Invalid X12 file: #{reason}. Please upload a valid 837 claim file."
-        )
+        |> put_flash(:error, "Upload failed: #{reason}")
         |> redirect(to: "/")
     end
   end
@@ -192,144 +82,12 @@ defmodule ClaimViewerWeb.PageController do
     |> redirect(to: "/")
   end
 
-  # Handle X12 files — supports multiple transaction sets per interchange
-  defp handle_x12_upload(conn, x12_path, filename) do
-    case ClaimViewer.X12Translator.translate_x12_to_json(x12_path) do
-      {:ok, json_data} ->
-        # Normalize: if parser returns nested arrays (multiple claims),
-        # process each one; otherwise wrap single claim in a list
-        transaction_sets =
-          case json_data do
-            [first | _] when is_list(first) -> json_data
-            sections when is_list(sections) -> [sections]
-            _ -> []
-          end
-
-        results =
-          transaction_sets
-          |> Enum.with_index(1)
-          |> Enum.map(fn {sections, idx} ->
-            process_single_transaction_set(sections, idx)
-          end)
-
-        {successes, failures} = Enum.split_with(results, &match?({:ok, _}, &1))
-        success_count = length(successes)
-        total = length(results)
-
-        # Save all successful claims
-        Enum.each(successes, fn {:ok, validated_sections} ->
-          save_claim(validated_sections)
-        end)
-
-        conn = build_upload_flash(conn, filename, success_count, total, failures)
-        redirect(conn, to: "/")
-
-      {:error, reason} ->
-        conn
-        |> put_flash(
-          :error,
-          "Unable to process X12 file. Error: #{reason}"
-        )
-        |> redirect(to: "/")
-    end
-  end
-
-  # Process a single transaction set through struct mapping + schema validation
-  defp process_single_transaction_set(sections, index) do
-    alias ClaimViewer.X12.{Mapper, SchemaValidator}
-
-    with {:ok, claim_struct} <- Mapper.from_sections(sections),
-         validated_sections = Mapper.to_validated_sections(claim_struct),
-         {:ok, validated_sections} <- SchemaValidator.validate_837_json(validated_sections) do
-      {:ok, validated_sections}
-    else
-      {:error, :validation_failed, errors} ->
-        {:error, "Transaction set ##{index} failed schema validation: #{inspect(errors)}"}
-
-      {:error, reason} ->
-        {:error, "Transaction set ##{index}: #{reason}"}
-    end
-  end
-
-  defp build_upload_flash(conn, filename, success_count, total, failures) do
-    cond do
-      success_count == total and total == 1 ->
-        put_flash(conn, :info, "Claim uploaded successfully from #{filename}")
-
-      success_count == total ->
-        put_flash(
-          conn,
-          :info,
-          "All #{success_count} claims uploaded successfully from #{filename}"
-        )
-
-      success_count > 0 ->
-        error_msgs = Enum.map(failures, fn {:error, msg} -> msg end) |> Enum.join("; ")
-
-        conn
-        |> put_flash(
-          :info,
-          "#{success_count} of #{total} claims saved from #{filename}"
-        )
-        |> put_flash(:error, "Failed claims: #{error_msgs}")
-
-      true ->
-        error_msgs = Enum.map(failures, fn {:error, msg} -> msg end) |> Enum.join("; ")
-        put_flash(conn, :error, "All #{total} claims failed from #{filename}: #{error_msgs}")
-    end
-  end
-
-  # Save a validated claim to the database
-  defp save_claim(json_data) do
-    search_fields = Claims.extract_search_fields(json_data)
-
-    date_of_service =
-      try do
-        Claims.extract_date_of_service(json_data)
-      rescue
-        _ -> nil
-      end
-
-    attrs =
-      %{raw_json: json_data, date_of_service: date_of_service}
-      |> Map.merge(search_fields)
-
-    %Claim{}
-    |> Claim.changeset(attrs)
-    |> Repo.insert!()
-  end
-
-  # ===== EXPORT PDF =====
+  # ===== Export =====
 
   def export_pdf(conn, %{"id" => id}) do
-    claim = Repo.get!(Claim, id)
+    claim = Claims.get_claim!(id)
 
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
-        h1 { color: #38bdf8; border-bottom: 3px solid #38bdf8; padding-bottom: 10px; }
-        h2 { color: #38bdf8; font-size: 18px; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
-        th { background: #f0f0f0; font-weight: bold; }
-        .field { margin: 8px 0; }
-        .field strong { color: #555; }
-        .summary { background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-      </style>
-    </head>
-    <body>
-      <h1>CLAIM REPORT</h1>
-      #{render_claim_summary(claim.raw_json)}
-      #{render_claim_sections(claim.raw_json)}
-    </body>
-    </html>
-    """
-
-    case ClaimViewer.PDF.generate(html_content) do
+    case ClaimViewer.Export.PDF.render(claim) do
       {:ok, pdf_binary} ->
         conn
         |> put_resp_content_type("application/pdf")
@@ -343,64 +101,9 @@ defmodule ClaimViewerWeb.PageController do
     end
   end
 
-  # ===== EXPORT CSV =====
-
   def export_csv(conn, %{"id" => id}) do
-    claim = Repo.get!(Claim, id)
-
-    subscriber = Enum.find(claim.raw_json, fn s -> s["section"] == "subscriber" end) || %{}
-    subscriber_data = subscriber["data"] || %{}
-
-    payer = Enum.find(claim.raw_json, fn s -> s["section"] == "payer" end) || %{}
-    payer_data = payer["data"] || %{}
-
-    claim_section = Enum.find(claim.raw_json, fn s -> s["section"] == "claim" end) || %{}
-    claim_data = claim_section["data"] || %{}
-
-    service_lines_section =
-      Enum.find(claim.raw_json, fn s ->
-        String.downcase(s["section"] || "") |> String.contains?("service")
-      end) || %{}
-
-    service_data = service_lines_section["data"] || []
-
-    service_dates =
-      if is_list(service_data) and service_data != [] do
-        service_data |> Enum.map(fn line -> line["serviceDate"] end) |> Enum.reject(&is_nil/1)
-      else
-        []
-      end
-
-    first_date = if service_dates != [], do: Enum.min(service_dates), else: nil
-    last_date = if service_dates != [], do: Enum.max(service_dates), else: nil
-
-    indicators = claim_data["indicators"] || %{}
-    all_approved = Enum.all?(Map.values(indicators), fn v -> v in ["Y", "A", "I"] end)
-    status = if all_approved and indicators != %{}, do: "Approved", else: "Pending Review"
-
-    csv_content = """
-    CLAIM SUMMARY
-    =============
-    Member: #{subscriber_data["firstName"]} #{subscriber_data["lastName"]} (DOB: #{format_date_plain(subscriber_data["dob"])})
-    Payer: #{payer_data["name"]}
-    Claim #: #{claim_data["clearinghouseClaimNumber"] || claim_data["id"]}
-    Service Dates: #{if first_date && last_date do
-      if first_date == last_date do
-        format_date_plain(first_date)
-      else
-        "#{format_date_plain(first_date)} - #{format_date_plain(last_date)}"
-      end
-    else
-      ""
-    end}
-    Total Charge: $#{format_number(claim_data["totalCharge"])}
-    Status: #{status}
-
-
-    #{build_all_sections_csv(claim.raw_json)}
-
-    Generated: #{DateTime.utc_now() |> DateTime.to_string()}
-    """
+    claim = Claims.get_claim!(id)
+    {:ok, csv_content} = ClaimViewer.Export.CSV.render(claim)
 
     conn
     |> put_resp_content_type("text/csv")
@@ -408,312 +111,49 @@ defmodule ClaimViewerWeb.PageController do
     |> send_resp(200, csv_content)
   end
 
-  # ===== CSV HELPERS =====
+  # ===== Private Helpers =====
 
-  defp build_all_sections_csv(sections) do
-    sections
-    |> Enum.map(fn section ->
-      section_name = (section["section"] || "") |> String.replace("_", " ") |> String.upcase()
-      data = section["data"] || %{}
+  @filter_keys ~w(member_first member_last payer billing_provider
+                  rendering_provider claim_number service_from service_to status)
 
-      section_content = """
-      #{section_name}
-      #{String.duplicate("-", String.length(section_name))}
-      #{render_section_csv(data)}
-      """
-
-      section_content
+  defp trim_filters(params) do
+    Map.new(@filter_keys, fn key ->
+      {key, params |> Map.get(key, "") |> String.trim()}
     end)
-    |> Enum.join("\n")
   end
 
-  defp render_section_csv(data) when is_map(data) and data != %{} do
-    data
-    |> Map.to_list()
-    |> Enum.reject(fn {k, _} -> k in ["indicators"] end)
-    |> Enum.sort_by(fn {k, _} -> k end)
-    |> Enum.map(fn {k, v} ->
-      label = format_label_nice(k)
-      value = format_value_plain(v)
-      "#{label}: #{value}"
-    end)
-    |> Enum.join("\n")
-  end
-
-  defp render_section_csv(data) when is_list(data) and data != [] do
-    data
-    |> Enum.with_index(1)
-    |> Enum.flat_map(fn {row, idx} ->
-      ["Line #{idx}:"] ++
-        (row
-         |> Enum.reject(fn {k, _} -> k == "lineNumber" end)
-         |> Enum.map(fn {k, v} ->
-           label = format_label_nice(k)
-
-           value =
-             case v do
-               nil -> ""
-               vv when is_binary(vv) and k == "serviceDate" -> format_date_plain(vv)
-               vv when is_number(vv) -> to_string(vv)
-               vv -> to_string(vv)
-             end
-
-           "  #{label}: #{value}"
-         end)) ++ [""]
-    end)
-    |> Enum.join("\n")
-  end
-
-  defp render_section_csv(_), do: ""
-
-  defp format_label_nice(key) when is_binary(key) do
-    key
-    |> String.replace("_", " ")
-    |> String.split()
-    |> Enum.map(&String.capitalize/1)
-    |> Enum.join(" ")
-  end
-
-  defp format_label_nice(key), do: to_string(key)
-
-  defp format_value_plain(value) when is_map(value) do
-    value
-    |> Enum.map(fn {k, v} -> "  #{k}: #{v}" end)
-    |> Enum.join("\n")
-  end
-
-  defp format_value_plain(value) when is_binary(value) do
-    case Date.from_iso8601(value) do
-      {:ok, date} -> format_date_plain(date)
-      _ -> value
+  defp parse_page(params) do
+    case Integer.parse(Map.get(params, "page", "1")) do
+      {num, _} -> num
+      :error -> 1
     end
   end
 
-  defp format_value_plain(value), do: to_string(value)
-
-  defp format_date_plain(nil), do: ""
-
-  defp format_date_plain(date) when is_binary(date) do
-    case Date.from_iso8601(date) do
-      {:ok, d} -> format_date_plain(d)
-      _ -> date
-    end
+  defp has_search?(filters) do
+    Enum.any?(@filter_keys, fn key ->
+      val = filters[key]
+      val != "" and (String.length(val) >= 2 or key in ~w(service_from service_to status))
+    end)
   end
 
-  defp format_date_plain(%Date{} = date) do
-    Calendar.strftime(date, "%B %d %Y")
-  end
-
-  defp format_number(nil), do: "0.00"
-
-  defp format_number(num) when is_number(num) do
-    :erlang.float_to_binary(num * 1.0, decimals: 2)
-  end
-
-  defp format_number(num), do: to_string(num)
-
-  # ===== QUERY HELPERS =====
-
-  defp maybe_like(query, _field, ""), do: query
-
-  defp maybe_like(query, field, value) do
-    where(query, [c], ilike(field(c, ^field), ^"%#{value}%"))
-  end
-
-  defp maybe_exact(query, _field, ""), do: query
-
-  defp maybe_exact(query, field, value) do
-    where(query, [c], field(c, ^field) == ^value)
-  end
-
-  defp maybe_full_name(query, first, last) do
+  defp build_upload_flash(conn, filename, %{success_count: sc, total: total, failures: failures}) do
     cond do
-      first != "" and last != "" ->
-        where(
-          query,
-          [c],
-          ilike(c.member_first_name, ^"%#{first}%") and
-            ilike(c.member_last_name, ^"%#{last}%")
-        )
+      sc == total and total == 1 ->
+        put_flash(conn, :info, "Claim uploaded successfully from #{filename}")
 
-      first != "" ->
-        where(query, [c], ilike(c.member_first_name, ^"%#{first}%"))
+      sc == total ->
+        put_flash(conn, :info, "All #{sc} claims uploaded successfully from #{filename}")
 
-      last != "" ->
-        where(query, [c], ilike(c.member_last_name, ^"%#{last}%"))
+      sc > 0 ->
+        error_msgs = Enum.join(failures, "; ")
+
+        conn
+        |> put_flash(:info, "#{sc} of #{total} claims saved from #{filename}")
+        |> put_flash(:error, "Failed claims: #{error_msgs}")
 
       true ->
-        query
+        error_msgs = Enum.join(failures, "; ")
+        put_flash(conn, :error, "All #{total} claims failed from #{filename}: #{error_msgs}")
     end
   end
-
-  defp maybe_date_range(query, "", ""), do: query
-
-  defp maybe_date_range(query, from, "") do
-    case Date.from_iso8601(from) do
-      {:ok, from_date} ->
-        where(query, [c], c.date_of_service >= ^from_date)
-
-      _ ->
-        query
-    end
-  end
-
-  defp maybe_date_range(query, "", to) do
-    case Date.from_iso8601(to) do
-      {:ok, to_date} ->
-        where(query, [c], c.date_of_service <= ^to_date)
-
-      _ ->
-        query
-    end
-  end
-
-  defp maybe_date_range(query, from, to) do
-    case {Date.from_iso8601(from), Date.from_iso8601(to)} do
-      {{:ok, from_date}, {:ok, to_date}} ->
-        where(
-          query,
-          [c],
-          not is_nil(c.date_of_service) and
-            c.date_of_service >= ^from_date and
-            c.date_of_service <= ^to_date
-        )
-
-      _ ->
-        query
-    end
-  end
-
-  # ===== PDF HELPERS =====
-
-  defp render_claim_summary(sections) do
-    subscriber = Enum.find(sections, fn s -> s["section"] == "subscriber" end) || %{}
-    subscriber_data = subscriber["data"] || %{}
-
-    payer = Enum.find(sections, fn s -> s["section"] == "payer" end) || %{}
-    payer_data = payer["data"] || %{}
-
-    claim = Enum.find(sections, fn s -> s["section"] == "claim" end) || %{}
-    claim_data = claim["data"] || %{}
-
-    """
-    <div class="summary">
-      <h2 style="margin-top:0;">CLAIM SUMMARY</h2>
-      <div class="field"><strong>Member:</strong> #{subscriber_data["firstName"]} #{subscriber_data["lastName"]}</div>
-      <div class="field"><strong>Payer:</strong> #{payer_data["name"]}</div>
-      <div class="field"><strong>Claim #:</strong> #{claim_data["clearinghouseClaimNumber"]}</div>
-      <div class="field"><strong>Total Charge:</strong> $#{claim_data["totalCharge"]}</div>
-    </div>
-    """
-  end
-
-  defp render_claim_sections(sections) do
-    sections
-    |> Enum.map(fn section ->
-      section_name = (section["section"] || "") |> String.replace("_", " ") |> String.upcase()
-      data = section["data"] || %{}
-
-      """
-      <h2>#{section_name}</h2>
-      #{render_section_data(data)}
-      """
-    end)
-    |> Enum.join("\n")
-  end
-
-  defp render_section_data(data) when is_map(data) and data != %{} do
-    data
-    |> Enum.reject(fn {k, _} -> k in ["indicators"] end)
-    |> Enum.map(fn {k, v} ->
-      value =
-        if is_map(v) do
-          v |> Enum.map(fn {kk, vv} -> "#{kk}: #{vv}" end) |> Enum.join(", ")
-        else
-          v
-        end
-
-      ~s(<div class="field"><strong>#{format_label(k)}:</strong> #{value}</div>)
-    end)
-    |> Enum.join("\n")
-  end
-
-  defp render_section_data(data) when is_list(data) and data != [] do
-    first = List.first(data)
-    keys = Map.keys(first)
-
-    """
-    <table>
-      <thead>
-        <tr>
-          #{keys |> Enum.map(&"<th>#{format_label(&1)}</th>") |> Enum.join("")}
-        </tr>
-      </thead>
-      <tbody>
-        #{data |> Enum.map(fn row -> "<tr>#{keys |> Enum.map(&"<td>#{row[&1]}</td>") |> Enum.join("")}</tr>" end) |> Enum.join("\n")}
-      </tbody>
-    </table>
-    """
-  end
-
-  defp render_section_data(_), do: ""
-
-  defp format_label(key) when is_binary(key) do
-    key
-    |> String.replace("_", " ")
-    |> String.capitalize()
-  end
-
-  defp format_label(key), do: to_string(key)
-
-  # ===== STATUS FILTER =====
-
-  # Status filter helper
-  defp maybe_status(query, ""), do: query
-
-  defp maybe_status(query, "approved") do
-    # Get claims where all indicators are Y/A/I
-    from(c in query,
-      where:
-        fragment(
-          """
-          EXISTS (
-            SELECT 1
-            FROM jsonb_array_elements(?::jsonb) AS elem,
-                 jsonb_each_text(elem->'data'->'indicators') AS ind
-            WHERE elem->>'section' = 'claim'
-              AND jsonb_typeof(elem->'data'->'indicators') = 'object'
-            GROUP BY elem
-            HAVING COUNT(*) > 0
-              AND COUNT(*) FILTER (WHERE ind.value IN ('Y', 'A', 'I')) = COUNT(*)
-          )
-          """,
-          c.raw_json
-        )
-    )
-  end
-
-  defp maybe_status(query, "pending") do
-    # Get claims where NOT all indicators are Y/A/I
-    from(c in query,
-      where:
-        fragment(
-          """
-          NOT EXISTS (
-            SELECT 1
-            FROM jsonb_array_elements(?::jsonb) AS elem,
-                 jsonb_each_text(elem->'data'->'indicators') AS ind
-            WHERE elem->>'section' = 'claim'
-              AND jsonb_typeof(elem->'data'->'indicators') = 'object'
-            GROUP BY elem
-            HAVING COUNT(*) > 0
-              AND COUNT(*) FILTER (WHERE ind.value IN ('Y', 'A', 'I')) = COUNT(*)
-          )
-          """,
-          c.raw_json
-        )
-    )
-  end
-
-  defp maybe_status(query, _), do: query
 end

@@ -79,7 +79,25 @@ defmodule ClaimViewerWeb.Telemetry do
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
       summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io")
+      summary("vm.total_run_queue_lengths.io"),
+
+      # ClaimViewer Business Metrics
+      summary("claim_viewer.ingestion.stop.duration",
+        unit: {:native, :millisecond},
+        description: "Time to ingest an X12 file end-to-end"
+      ),
+      counter("claim_viewer.ingestion.stop.duration",
+        description: "Number of X12 ingestion attempts"
+      ),
+      summary("claim_viewer.export.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:format],
+        description: "Time to generate a claim export"
+      ),
+      summary("claim_viewer.search.stop.duration",
+        unit: {:native, :millisecond},
+        description: "Time to execute a claim search query"
+      )
     ]
   end
 

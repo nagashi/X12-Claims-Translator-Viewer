@@ -67,7 +67,8 @@ defmodule ClaimViewer.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       {:chromic_pdf, "~> 1.17"},
-      {:ex_jsonschema, "~> 0.1.17"}
+      {:ex_jsonschema, "~> 0.1.17"},
+      {:stream_data, "~> 1.0", only: :test}
     ]
   end
 

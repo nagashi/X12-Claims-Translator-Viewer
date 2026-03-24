@@ -59,35 +59,62 @@ defmodule ClaimViewer.X12.Mapper do
   """
   @spec from_sections(list()) :: {:ok, Claim837.t()} | {:error, String.t()}
   def from_sections(sections) when is_list(sections) do
-    claim837 =
-      Enum.reduce(sections, %Claim837{}, fn section, acc ->
-        section_name = section["section"]
-        data = section["data"]
+    case validate_section_shapes(sections) do
+      :ok ->
+        claim837 =
+          Enum.reduce(sections, %Claim837{}, fn section, acc ->
+            section_name = section["section"]
+            data = section["data"]
 
-        case Map.get(@section_to_field, section_name) do
-          nil ->
-            # Unknown section, skip
-            acc
+            case Map.get(@section_to_field, section_name) do
+              nil ->
+                # Unknown section, skip
+                acc
 
-          :service_lines ->
-            # service_Lines data is a list, not a map
-            lines = ServiceLine.list_from_data(data)
-            %{acc | service_lines: lines}
+              :service_lines ->
+                lines = ServiceLine.list_from_data(data)
+                %{acc | service_lines: lines}
 
-          field ->
-            struct_mod = Map.fetch!(@section_to_struct, section_name)
-            struct_val = struct_mod.from_map(data)
-            %{acc | field => struct_val}
-        end
-      end)
+              field ->
+                struct_mod = Map.fetch!(@section_to_struct, section_name)
+                struct_val = struct_mod.from_map(data)
+                %{acc | field => struct_val}
+            end
+          end)
 
-    {:ok, claim837}
-  rescue
-    e ->
-      {:error, "Failed to map sections to structs: #{Exception.message(e)}"}
+        {:ok, claim837}
+
+      {:error, _} = error ->
+        error
+    end
   end
 
   def from_sections(_), do: {:error, "Expected a list of section maps"}
+
+  defp validate_section_shapes(sections) do
+    Enum.reduce_while(sections, :ok, fn section, :ok ->
+      cond do
+        not is_map(section) ->
+          {:halt, {:error, "Expected a map for each section, got: #{inspect(section)}"}}
+
+        not is_binary(section["section"]) ->
+          {:halt,
+           {:error,
+            "Section missing or invalid \"section\" key: #{inspect(Map.get(section, "section"))}"}}
+
+        is_nil(section["data"]) ->
+          {:halt, {:error, "Section \"#{section["section"]}\" is missing \"data\" key"}}
+
+        not (is_map(section["data"]) or is_list(section["data"])) ->
+          {:halt,
+           {:error,
+            "Section \"#{section["section"]}\" has invalid \"data\" type: #{inspect(section["data"])}"}}
+
+        true ->
+          {:cont, :ok}
+      end
+    end)
+  end
 
   @doc """
   Converts a `%Claim837{}` struct back into the list-of-section-maps
