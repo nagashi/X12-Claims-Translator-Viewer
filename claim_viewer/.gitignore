@@ -41,5 +41,6 @@ run_dev.sh
 config/dev.exs.BACKUP
 test-claims/
 docs/
+test_db_config_change.pdf
 
 
