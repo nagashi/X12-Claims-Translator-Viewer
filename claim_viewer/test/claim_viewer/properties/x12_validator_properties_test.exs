@@ -11,6 +11,8 @@ defmodule ClaimViewer.Properties.X12ValidatorPropertiesTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
+  @moduletag :io
+
   describe "validate_file_content fuzz robustness" do
     property "random binary files never crash — always return {:ok, _} or {:error, _}" do
       check all(

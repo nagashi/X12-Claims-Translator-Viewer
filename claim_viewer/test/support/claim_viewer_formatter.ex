@@ -208,41 +208,43 @@ defmodule ClaimViewer.TestFormatter do
   # ── Footer ──────────────────────────────────────────────
 
   defp render_footer(prop_tests, unit_tests, run_us, state) do
-    prop_total = length(prop_tests)
-    prop_failures = Enum.count(prop_tests, &failed?/1)
-    prop_passed = prop_total - prop_failures
+    {io_props, pure_props} = Enum.split_with(prop_tests, &io_test?/1)
+    {io_units, pure_units} = Enum.split_with(unit_tests, &io_test?/1)
+    _io_checks = io_props ++ io_units
 
-    unit_total = length(unit_tests)
-    unit_failures = Enum.count(unit_tests, &failed?/1)
-    unit_passed = unit_total - unit_failures
+    all_tests = prop_tests ++ unit_tests
+    total_failures = Enum.count(all_tests, &failed?/1)
 
-    total_failures = prop_failures + unit_failures
+    categories =
+      [
+        {"Properties", pure_props},
+        {"Prop. IO", io_props},
+        {"Unit", pure_units},
+        {"Unit IO", io_units}
+      ]
+      |> Enum.reject(fn {_, tests} -> tests == [] end)
+
+    label_width =
+      categories
+      |> Enum.map(fn {label, _} -> String.length(label) end)
+      |> Enum.max(fn -> 5 end)
+      |> max(String.length("Total"))
+
+    separator = "────────────────────────────────────────"
 
     IO.puts("")
     IO.puts(bold("Summary"))
-    IO.puts(String.duplicate("=", 40))
+    IO.puts(separator)
 
-    prop_line = "Property-based testing: #{prop_passed} passed, #{prop_failures} failed"
-    unit_line = "Unit testing: #{unit_passed} passed, #{unit_failures} failed"
+    for {label, tests} <- categories, do: render_summary_line(label, tests, label_width)
+    render_summary_line("Total", all_tests, label_width)
 
-    if prop_failures == 0 do
-      IO.puts(green(prop_line))
-    else
-      IO.puts(red(prop_line))
-    end
-
-    if unit_failures == 0 do
-      IO.puts(green(unit_line))
-    else
-      IO.puts(red(unit_line))
-    end
-
-    IO.puts("")
+    IO.puts(separator)
 
     if total_failures == 0 do
       IO.puts(green("All tests passed. ✓"))
     else
-      IO.puts(red("#{total_failures} failure(s). ✗"))
+      IO.puts(red("One or more tests FAILED. ✗"))
     end
 
     seconds = Float.round(run_us / 1_000_000, 1)
@@ -253,6 +255,15 @@ defmodule ClaimViewer.TestFormatter do
     if state.skipped > 0, do: IO.puts("#{state.skipped} skipped")
 
     IO.puts("Randomized with seed #{state.seed}")
+  end
+
+  defp render_summary_line(label, tests, label_width) do
+    passed = Enum.count(tests, &(not failed?(&1)))
+    failed_count = Enum.count(tests, &failed?/1)
+    padded = String.pad_trailing(label, label_width)
+    line = "#{padded} : #{passed} passed, #{failed_count} failed"
+
+    if failed_count == 0, do: IO.puts(green(line)), else: IO.puts(red(line))
   end
 
   # ── Grouping helpers ────────────────────────────────────
@@ -309,6 +320,8 @@ defmodule ClaimViewer.TestFormatter do
   end
 
   defp property_test?(test), do: test.tags[:property] == true
+
+  defp io_test?(test), do: test.tags[:io] == true
 
   defp failed?(test), do: match?({:failed, _}, test.state)
 
