@@ -292,11 +292,22 @@ defmodule ClaimViewer.TestFormatter do
         acc + (test.tags[:max_runs] || 100)
       end)
 
+    non_param_total = length(all_tests) - prop_count
+
     if prop_count > 0 do
       IO.puts(
         "#{prop_count} properties | #{format_number(parameterized_total)} parameterized tests"
       )
     end
+
+    if non_param_total > 0 do
+      IO.puts(
+        "#{non_param_total} non-parameterized | #{non_param_total} test executions"
+      )
+    end
+
+    total_executions = parameterized_total + non_param_total
+    IO.puts("Total: #{format_number(total_executions)} property test executions")
 
     if total_failures == 0 do
       IO.puts(green("All tests passed. ✓"))
@@ -318,7 +329,23 @@ defmodule ClaimViewer.TestFormatter do
     passed = Enum.count(tests, &(not failed?(&1)))
     failed_count = Enum.count(tests, &failed?/1)
     padded = String.pad_trailing(label, label_width)
-    line = "#{padded} : #{passed} passed, #{failed_count} failed"
+
+    prop_count = Enum.count(tests, &property_test?/1)
+    non_param_count = length(tests) - prop_count
+
+    annotation =
+      cond do
+        prop_count > 0 and non_param_count > 0 ->
+          "  (#{prop_count} properties, #{non_param_count} non-parameterized)"
+
+        prop_count > 0 ->
+          "  (#{prop_count} properties)"
+
+        true ->
+          ""
+      end
+
+    line = "#{padded} : #{passed} passed, #{failed_count} failed#{annotation}"
 
     if failed_count == 0, do: IO.puts(green(line)), else: IO.puts(red(line))
   end
