@@ -16,6 +16,7 @@ defmodule ClaimViewer.Properties.ClaimChangesetPropertiesTest do
   alias ClaimViewer.Claims.Claim
 
   describe "valid data always accepted" do
+    @tag max_runs: 200
     property "valid attrs with valid NPIs produce valid changeset" do
       check all(attrs <- gen_valid_claim_attrs(), max_runs: 200) do
         changeset = Claim.changeset(%Claim{}, attrs)
@@ -27,6 +28,7 @@ defmodule ClaimViewer.Properties.ClaimChangesetPropertiesTest do
   end
 
   describe "NPI validation" do
+    @tag max_runs: 200
     property "invalid billing_provider_npi is ALWAYS rejected" do
       check all(
               bad_npi <- gen_invalid_npi(),
@@ -43,6 +45,7 @@ defmodule ClaimViewer.Properties.ClaimChangesetPropertiesTest do
       end
     end
 
+    @tag max_runs: 200
     property "invalid rendering_provider_npi is ALWAYS rejected" do
       check all(
               bad_npi <- gen_invalid_npi(),
@@ -59,6 +62,7 @@ defmodule ClaimViewer.Properties.ClaimChangesetPropertiesTest do
       end
     end
 
+    @tag max_runs: 200
     property "valid 10-digit NPIs are ALWAYS accepted" do
       check all(
               npi <- gen_npi(),
@@ -73,6 +77,7 @@ defmodule ClaimViewer.Properties.ClaimChangesetPropertiesTest do
   end
 
   describe "raw_json always required" do
+    @tag max_runs: 100
     property "missing raw_json is always rejected regardless of other attrs" do
       check all(
               npi <- gen_npi(),
@@ -93,6 +98,7 @@ defmodule ClaimViewer.Properties.ClaimChangesetPropertiesTest do
   end
 
   describe "fuzz robustness" do
+    @tag max_runs: 200
     property "fuzz attrs never crash changeset — always returns valid or invalid" do
       check all(attrs <- gen_fuzz_claim_attrs(), max_runs: 200) do
         changeset = Claim.changeset(%Claim{}, attrs)
@@ -101,6 +107,7 @@ defmodule ClaimViewer.Properties.ClaimChangesetPropertiesTest do
       end
     end
 
+    @tag max_runs: 50
     property "fuzz attrs that pass changeset can be inserted" do
       check all(attrs <- gen_fuzz_claim_attrs(), max_runs: 50) do
         changeset = Claim.changeset(%Claim{}, attrs)

@@ -84,22 +84,64 @@ defmodule ClaimViewer.TestFormatter do
     IO.puts(bold(header))
     IO.puts(String.duplicate("=", max(String.length(header), 40)))
 
-    for {section_header, section_tests} <- group_by_section(tests) do
-      IO.puts("")
-      IO.puts(bold(section_header))
-      IO.puts(String.duplicate("-", max(String.length(section_header), 40)))
+    # Group by module first, then by describe within each module
+    tests
+    |> Enum.group_by(& &1.module)
+    |> Enum.sort_by(fn {mod, _} -> module_sort_key(mod) end)
+    |> Enum.each(fn {_mod, mod_tests} ->
+      for {section_header, section_tests} <- group_by_section(mod_tests) do
+        IO.puts("")
+        IO.puts(bold(section_header))
+        IO.puts(String.duplicate("-", max(String.length(section_header), 40)))
 
-      {props, units} = Enum.split_with(section_tests, &property_test?/1)
-      if props != [], do: render_properties_inline(props)
-      Enum.each(units, &render_unit_line/1)
+        {props, units} = Enum.split_with(section_tests, &property_test?/1)
+        if props != [], do: render_properties_inline(props)
+        Enum.each(units, &render_unit_line/1)
 
-      render_section_summary(section_tests)
-    end
+        render_section_summary(section_tests)
+      end
+
+      render_module_subtotal(mod_tests)
+    end)
 
     total = length(tests)
     failures = Enum.count(tests, &failed?/1)
     IO.puts("")
     IO.puts("Property-based testing: #{total} ran, #{failures} failures")
+  end
+
+  defp render_module_subtotal(module_tests) do
+    props = Enum.filter(module_tests, &property_test?/1)
+    prop_count = length(props)
+
+    if prop_count > 0 do
+      parameterized =
+        Enum.reduce(props, 0, fn test, acc ->
+          acc + (test.tags[:max_runs] || 100)
+        end)
+
+      max_runs_values = Enum.map(props, fn t -> t.tags[:max_runs] || 100 end)
+
+      runs_label =
+        if length(Enum.uniq(max_runs_values)) == 1 do
+          "#{hd(max_runs_values)} runs"
+        else
+          "mixed runs"
+        end
+
+      failed_count = Enum.count(props, &failed?/1)
+      status = if failed_count == 0, do: "✓", else: "✗"
+
+      line =
+        "  #{prop_count} properties × #{runs_label} = #{format_number(parameterized)} #{status}"
+
+      IO.puts("")
+      IO.puts("  ─────────────────────────────────────")
+
+      if failed_count == 0, do: IO.puts(green(line)), else: IO.puts(red(line))
+
+      IO.puts("  ─────────────────────────────────────")
+    end
   end
 
   # ── Unit Suite ──────────────────────────────────────────
@@ -241,6 +283,21 @@ defmodule ClaimViewer.TestFormatter do
 
     IO.puts(separator)
 
+    # Parameterized test depth — computed from @tag max_runs on each property
+    all_props = Enum.filter(prop_tests, &property_test?/1)
+    prop_count = length(all_props)
+
+    parameterized_total =
+      Enum.reduce(all_props, 0, fn test, acc ->
+        acc + (test.tags[:max_runs] || 100)
+      end)
+
+    if prop_count > 0 do
+      IO.puts(
+        "#{prop_count} properties | #{format_number(parameterized_total)} parameterized tests"
+      )
+    end
+
     if total_failures == 0 do
       IO.puts(green("All tests passed. ✓"))
     else
@@ -354,5 +411,13 @@ defmodule ClaimViewer.TestFormatter do
     else
       text
     end
+  end
+
+  defp format_number(n) when is_integer(n) do
+    n
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.replace(~r/(\d{3})(?=\d)/, "\\1,")
+    |> String.reverse()
   end
 end

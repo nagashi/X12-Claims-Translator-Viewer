@@ -17,6 +17,7 @@ defmodule ClaimViewer.Properties.MapperPropertiesTest do
   alias ClaimViewer.X12.Mapper
 
   describe "section ordering independence" do
+    @tag max_runs: 100
     property "shuffled sections produce identical Claim837 struct" do
       check all(sections <- gen_valid_sections(), max_runs: 100) do
         {:ok, claim_ordered} = Mapper.from_sections(sections)
@@ -28,6 +29,7 @@ defmodule ClaimViewer.Properties.MapperPropertiesTest do
   end
 
   describe "unknown section tolerance" do
+    @tag max_runs: 100
     property "extra unknown sections are silently ignored" do
       check all(
               sections <- gen_valid_sections(),
@@ -44,6 +46,7 @@ defmodule ClaimViewer.Properties.MapperPropertiesTest do
   end
 
   describe "from_sections never crashes on valid shapes" do
+    @tag max_runs: 200
     property "always returns {:ok, _} for generated valid sections" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         assert {:ok, claim} = Mapper.from_sections(sections)
@@ -53,6 +56,7 @@ defmodule ClaimViewer.Properties.MapperPropertiesTest do
   end
 
   describe "round-trip through to_validated_sections" do
+    @tag max_runs: 100
     property "to_validated_sections produces valid section list" do
       check all(sections <- gen_valid_sections(), max_runs: 100) do
         {:ok, claim} = Mapper.from_sections(sections)
@@ -68,6 +72,7 @@ defmodule ClaimViewer.Properties.MapperPropertiesTest do
       end
     end
 
+    @tag max_runs: 100
     property "double round-trip produces identical struct" do
       check all(sections <- gen_valid_sections(), max_runs: 100) do
         {:ok, claim1} = Mapper.from_sections(sections)
@@ -79,6 +84,7 @@ defmodule ClaimViewer.Properties.MapperPropertiesTest do
   end
 
   describe "validation rejects malformed input" do
+    @tag max_runs: 100
     property "non-map elements always produce error" do
       check all(
               bad <-
@@ -96,6 +102,7 @@ defmodule ClaimViewer.Properties.MapperPropertiesTest do
       end
     end
 
+    @tag max_runs: 100
     property "sections missing 'data' key always produce error" do
       check all(
               name <- StreamData.string(:alphanumeric, min_length: 1, max_length: 20),
@@ -107,6 +114,7 @@ defmodule ClaimViewer.Properties.MapperPropertiesTest do
       end
     end
 
+    @tag max_runs: 100
     property "sections with non-map/non-list data always produce error" do
       check all(
               name <- StreamData.string(:alphanumeric, min_length: 1, max_length: 20),

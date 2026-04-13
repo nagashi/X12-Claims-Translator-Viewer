@@ -42,6 +42,7 @@ defmodule ClaimViewer.Properties.PipelineFidelityPropertiesTest do
   }
 
   describe "full pipeline field-for-field fidelity" do
+    @tag max_runs: 200
     property "every field in every section survives the round-trip" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         {:ok, claim_struct} = Mapper.from_sections(sections)
@@ -93,6 +94,7 @@ defmodule ClaimViewer.Properties.PipelineFidelityPropertiesTest do
     @service_line_keys ~w(lineNumber codeQualifier procedureCode charge unitQualifier
                           units diagnosisPointer emergencyIndicator serviceDate placeOfService)
 
+    @tag max_runs: 200
     property "every service line field is preserved exactly" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         {:ok, claim_struct} = Mapper.from_sections(sections)
@@ -116,6 +118,7 @@ defmodule ClaimViewer.Properties.PipelineFidelityPropertiesTest do
   end
 
   describe "nested structure preservation" do
+    @tag max_runs: 200
     property "address fields survive round-trip exactly" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         {:ok, claim_struct} = Mapper.from_sections(sections)
@@ -139,6 +142,7 @@ defmodule ClaimViewer.Properties.PipelineFidelityPropertiesTest do
       end
     end
 
+    @tag max_runs: 200
     property "submitter contact fields survive round-trip" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         {:ok, claim_struct} = Mapper.from_sections(sections)
@@ -159,6 +163,7 @@ defmodule ClaimViewer.Properties.PipelineFidelityPropertiesTest do
       end
     end
 
+    @tag max_runs: 200
     property "claim indicators map survives round-trip" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         {:ok, claim_struct} = Mapper.from_sections(sections)
@@ -174,6 +179,7 @@ defmodule ClaimViewer.Properties.PipelineFidelityPropertiesTest do
       end
     end
 
+    @tag max_runs: 200
     property "diagnosis secondary list survives round-trip" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         {:ok, claim_struct} = Mapper.from_sections(sections)
@@ -191,6 +197,7 @@ defmodule ClaimViewer.Properties.PipelineFidelityPropertiesTest do
   end
 
   describe "numeric precision" do
+    @tag max_runs: 200
     property "totalCharge numeric value is preserved" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         {:ok, claim_struct} = Mapper.from_sections(sections)
@@ -209,6 +216,7 @@ defmodule ClaimViewer.Properties.PipelineFidelityPropertiesTest do
       end
     end
 
+    @tag max_runs: 200
     property "service line charge and units are preserved" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         {:ok, claim_struct} = Mapper.from_sections(sections)
@@ -231,6 +239,7 @@ defmodule ClaimViewer.Properties.PipelineFidelityPropertiesTest do
   end
 
   describe "idempotency" do
+    @tag max_runs: 200
     property "running the pipeline twice produces identical output" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         {:ok, claim1} = Mapper.from_sections(sections)

@@ -34,6 +34,7 @@ defmodule ClaimViewer.Properties.ClaimsContextPropertiesTest do
   end
 
   describe "extract_search_fields" do
+    @tag max_runs: 200
     property "never crashes on generated valid sections" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         fields = Claims.extract_search_fields(sections)
@@ -48,6 +49,7 @@ defmodule ClaimViewer.Properties.ClaimsContextPropertiesTest do
       end
     end
 
+    @tag max_runs: 200
     property "extracted fields are always strings or nil" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         fields = Claims.extract_search_fields(sections)
@@ -61,6 +63,7 @@ defmodule ClaimViewer.Properties.ClaimsContextPropertiesTest do
   end
 
   describe "extract_date_of_service" do
+    @tag max_runs: 200
     property "always returns {:ok, date} or {:error, _} — never crashes" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         result = Claims.extract_date_of_service(sections)
@@ -74,6 +77,7 @@ defmodule ClaimViewer.Properties.ClaimsContextPropertiesTest do
   end
 
   describe "LIKE wildcard injection" do
+    @tag max_runs: 50
     property "searching with % or _ does not match unrelated claims" do
       check all(
               sections <- gen_valid_sections(),
@@ -103,6 +107,7 @@ defmodule ClaimViewer.Properties.ClaimsContextPropertiesTest do
   end
 
   describe "filter composition" do
+    @tag max_runs: 30
     property "adding more filters to an active search never increases result count" do
       check all(sections <- gen_valid_sections(), max_runs: 30) do
         claim = insert_sample_claim(sections)
@@ -131,6 +136,7 @@ defmodule ClaimViewer.Properties.ClaimsContextPropertiesTest do
   end
 
   describe "list_claims never crashes" do
+    @tag max_runs: 100
     property "arbitrary filter combinations never cause exceptions" do
       check all(
               first <- gen_fuzz_string(),

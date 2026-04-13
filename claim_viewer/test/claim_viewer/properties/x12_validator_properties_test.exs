@@ -14,6 +14,7 @@ defmodule ClaimViewer.Properties.X12ValidatorPropertiesTest do
   @moduletag :io
 
   describe "validate_file_content fuzz robustness" do
+    @tag max_runs: 500
     property "random binary files never crash — always return {:ok, _} or {:error, _}" do
       check all(
               content <- StreamData.binary(min_length: 0, max_length: 1000),
@@ -40,6 +41,7 @@ defmodule ClaimViewer.Properties.X12ValidatorPropertiesTest do
       end
     end
 
+    @tag max_runs: 200
     property "ISA-prefixed but truncated content never crashes" do
       check all(
               suffix <- StreamData.binary(min_length: 0, max_length: 200),
@@ -62,6 +64,7 @@ defmodule ClaimViewer.Properties.X12ValidatorPropertiesTest do
       end
     end
 
+    @tag max_runs: 100
     property "nonexistent file paths return {:error, _} — never crash" do
       check all(
               path <- StreamData.string(:alphanumeric, min_length: 10, max_length: 50),

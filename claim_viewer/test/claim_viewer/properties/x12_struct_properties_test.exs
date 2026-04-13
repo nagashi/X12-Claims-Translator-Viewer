@@ -49,6 +49,7 @@ defmodule ClaimViewer.Properties.X12StructPropertiesTest do
     mod_name = mod |> Module.split() |> List.last()
 
     describe "#{mod_name} round-trip" do
+      @tag max_runs: 200
       property "from_map(to_map(from_map(data))) == from_map(data) for generated data" do
         check all(
                 data <- apply(ClaimViewer.Generators, unquote(gen_fn), []),
@@ -65,6 +66,7 @@ defmodule ClaimViewer.Properties.X12StructPropertiesTest do
         end
       end
 
+      @tag max_runs: 200
       property "from_map never crashes on generated data" do
         check all(
                 data <- apply(ClaimViewer.Generators, unquote(gen_fn), []),
@@ -86,6 +88,7 @@ defmodule ClaimViewer.Properties.X12StructPropertiesTest do
 
   # ServiceLine has list-specific functions
   describe "ServiceLine list functions" do
+    @tag max_runs: 100
     property "list_from_data round-trips through list_to_data" do
       check all(
               lines <- list_of(gen_service_line_map(), min_length: 0, max_length: 20),
@@ -108,6 +111,7 @@ defmodule ClaimViewer.Properties.X12StructPropertiesTest do
   end
 
   describe "fuzz robustness" do
+    @tag max_runs: 100
     property "all from_map functions tolerate maps with extra keys" do
       check all(
               data <- gen_subscriber_map(),
@@ -120,6 +124,7 @@ defmodule ClaimViewer.Properties.X12StructPropertiesTest do
       end
     end
 
+    @tag max_runs: 100
     property "all from_map functions tolerate maps with missing keys" do
       check all(
               data <- gen_subscriber_map(),

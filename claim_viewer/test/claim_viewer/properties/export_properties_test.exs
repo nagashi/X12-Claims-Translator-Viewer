@@ -16,6 +16,7 @@ defmodule ClaimViewer.Properties.ExportPropertiesTest do
   alias ClaimViewer.Export.CSV
 
   describe "PDF XSS escaping — no unescaped HTML entities in output" do
+    @tag max_runs: 200
     property "XSS payloads in subscriber fields are always escaped" do
       check all(xss <- gen_xss_string(), max_runs: 200) do
         escaped = Plug.HTML.html_escape_to_iodata(xss) |> IO.iodata_to_binary()
@@ -33,6 +34,7 @@ defmodule ClaimViewer.Properties.ExportPropertiesTest do
       end
     end
 
+    @tag max_runs: 500
     property "arbitrary strings are always escaped — no raw < > & \" in output" do
       check all(
               val <- StreamData.string(:printable, min_length: 1, max_length: 200),
@@ -59,6 +61,7 @@ defmodule ClaimViewer.Properties.ExportPropertiesTest do
       end
     end
 
+    @tag max_runs: 50
     property "XSS sections render through PDF escaping without raw tags" do
       check all(sections <- gen_xss_sections(), max_runs: 50) do
         # We can't call PDF.render (needs ChromicPDF), but we verify
@@ -80,6 +83,7 @@ defmodule ClaimViewer.Properties.ExportPropertiesTest do
   end
 
   describe "CSV render never crashes" do
+    @tag max_runs: 200
     property "valid sections always produce {:ok, string}" do
       check all(sections <- gen_valid_sections(), max_runs: 200) do
         claim = %{raw_json: sections}
@@ -89,6 +93,7 @@ defmodule ClaimViewer.Properties.ExportPropertiesTest do
       end
     end
 
+    @tag max_runs: 50
     property "XSS sections in CSV render produce {:ok, string}" do
       check all(sections <- gen_xss_sections(), max_runs: 50) do
         claim = %{raw_json: sections}
@@ -97,6 +102,7 @@ defmodule ClaimViewer.Properties.ExportPropertiesTest do
       end
     end
 
+    @tag max_runs: 100
     property "CSV output always contains CLAIM SUMMARY header" do
       check all(sections <- gen_valid_sections(), max_runs: 100) do
         claim = %{raw_json: sections}
@@ -105,6 +111,7 @@ defmodule ClaimViewer.Properties.ExportPropertiesTest do
       end
     end
 
+    @tag max_runs: 100
     property "CSV output always contains Generated timestamp" do
       check all(sections <- gen_valid_sections(), max_runs: 100) do
         claim = %{raw_json: sections}
